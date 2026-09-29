@@ -36,25 +36,27 @@ heron and steller run on a Hetzner box of their own.
 
 ---
 
-## steller's 1024-byte command limit, and what the client does about it
+## steller rejects a command split across reads, and what the client does about it
 
 **Found: 2026-09-29, at steller 8628070.**
 
-steller answers `ERR missing crlf terminator` to any command longer than 1024 bytes. Its session reads 1024 bytes at a time and `Frame::parse_bulk_string` reports a payload that has not all arrived as `MissingTerminator`, a hard error, where `Incomplete` would make the session read more. The session clears its buffer, the rest of the payload arrives, and steller parses it as new commands and answers each with an error.
+steller answers `ERR missing crlf terminator` to any command that does not arrive in a single read. `Frame::parse_bulk_string` reports a payload that has not all arrived as `MissingTerminator`, a hard error, where `Incomplete` would make the session read more. The session clears its buffer, the rest of the command arrives, and steller parses it as new commands and answers each with an error.
 
-Reproduce it with `redis-cli`:
+The session reads 1024 bytes at a time, so a command longer than that always fails. That is how it was first seen, and it was first written up here as a limit on size. It is not one. A command of any length fails when the network or the sender splits it. On the production box, a `PING` sent by bash's `printf`, which writes a line at a time, was rejected on the first try and answered on the second.
+
+Reproduce the size case with `redis-cli`:
 
 ```sh
 head -c 1000 /dev/zero | tr '\0' 'x' | redis-cli -p 3000 -x SET k
 ```
 
-or with `tests/live_steller_large.rs`.
+or with `tests/live_steller_large.rs`. Reproduce the split case by writing a command in two parts with a pause between them.
 
 **Decided here:** the client closes its connection after any error reply. After a rejection the connection holds replies to commands that were never sent, and keeping it would hand one of them to the next command as its answer. Against Redis this costs a reconnect after an error that would have been harmless. That is cheap, and error replies are rare.
 
 **Not decided here:** the client does not refuse large values or split them. That would write steller's bug into this codebase, and the adapter also has to work against Redis.
 
-**Exposure:** the largest snapshot measured is 517 bytes. Each language adds about 35. A repository with around twenty languages would not cache under `CACHE_BACKEND=steller`, and every request for it would go to GitHub. Under `layered` the memory layer holds it and nothing is lost.
+**Exposure:** this client sends each command with one write, over loopback, so a command under 1024 bytes arrives whole in practice. The largest snapshot measured is 517 bytes and each language adds about 35, so a repository with around twenty languages would cross the line. Under `CACHE_BACKEND=steller` a rejected write means that repository never caches. Under `layered` the memory layer holds it and nothing is lost, which is why production runs `layered`.
 
 **Revisit when:** steller is fixed. Then `tests/live_steller_large.rs` passes and can join `tests/live_steller.rs`.
 

@@ -2,7 +2,7 @@
 
 My personal server. Right now it does one thing: serves GitHub stats for the projects on [scottyfermo.com](https://scottyfermo.com) as JSON. It is live at [api.scadoshi.dev](https://api.scadoshi.dev/stats).
 
-The stats are cached, and the cache can run on [steller](https://github.com/scadoshi/steller), the Redis-compatible server I wrote. For this load that is overkill. One small JSON value per repo fits in a `HashMap`, and the server runs on exactly that if you ask it to. I run it on steller because benchmarks never found steller's best bugs and running it did. On the first day it found another: steller rejects any command over 1024 bytes. The write-up is in [`context/architecture/decisions.md`](context/architecture/decisions.md).
+The stats are cached, and the cache can run on [steller](https://github.com/scadoshi/steller), the Redis-compatible server I wrote. For this load that is overkill. One small JSON value per repo fits in a `HashMap`, and the server runs on exactly that if you ask it to. I run it on steller because benchmarks never found steller's best bugs and running it did. On the first day it found another: steller rejects any command that does not arrive in a single read. The write-up is in [`context/architecture/decisions.md`](context/architecture/decisions.md).
 
 ## Endpoints
 

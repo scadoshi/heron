@@ -1,6 +1,6 @@
 # Deploy
 
-These steps were run on 2026-09-29 and heron came up on the first start. "Adding steller" and "From GitHub Actions" have not been run.
+These steps were run on 2026-09-29, and both heron and steller came up on the first start. "From GitHub Actions" has not been run.
 
 heron runs on its own Hetzner box. `../architecture/hosting.md` says what else is on it and how traffic arrives.
 
@@ -103,10 +103,49 @@ A self-hosted runner compiles Rust on the box, which takes more memory than hero
 
 After heron is up on `memory`:
 
-1. Build steller and install it with its own unit, `deploy/steller.service` in steller's repo. It carries `MemoryMax=`, which matters: steller has no memory bound and no eviction.
-2. Check it answers: `redis-cli -p 3000 PING`.
-3. In `/etc/systemd/system/heron.service`, uncomment `Wants=steller.service` and `After=steller.service`, then `sudo systemctl daemon-reload`.
-4. In `/etc/heron/heron.env`, set `CACHE_BACKEND=layered` and `STELLER_ADDRESS=127.0.0.1:3000`.
-5. `sudo systemctl restart heron`, and check `/health/cache` reports `layered` and `healthy`.
+1. Build steller and install the binary:
 
-Use `layered`, not `steller`, until steller reads commands past 1024 bytes. See `../architecture/decisions.md`.
+    ```bash
+    git clone https://github.com/scadoshi/steller.git && cd steller
+    cargo build --release --locked
+    sudo install -m 755 target/release/steller /usr/local/bin/steller
+    ```
+
+2. Give it a user and a place to write. steller writes `cache/aof` and `cache/snapshot` under its working directory and does not create `cache` itself:
+
+    ```bash
+    sudo useradd --system --no-create-home --shell /usr/sbin/nologin steller
+    sudo mkdir -p /var/lib/steller/cache
+    sudo chown -R steller:steller /var/lib/steller
+    sudo chmod 750 /var/lib/steller
+    ```
+
+3. Install its unit, `deploy/steller.service` in steller's repo. It carries `MemoryMax=`, which matters: steller has no memory bound and no eviction.
+
+    ```bash
+    sudo cp deploy/steller.service /etc/systemd/system/
+    systemd-analyze verify /etc/systemd/system/steller.service
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now steller
+    ```
+
+4. Check it answers. This speaks RESP over a socket, so there is no client to install:
+
+    ```bash
+    exec 3<>/dev/tcp/127.0.0.1/3000
+    printf '*1\r\n$4\r\nPING\r\n' >&3
+    head -c 7 <&3; echo
+    exec 3>&-
+    ```
+
+    `+PONG` is the answer wanted. `-ERR mi` is steller rejecting a command that reached it in pieces; run it again. See `../architecture/decisions.md`.
+
+Then point heron at it:
+
+1. In `/etc/systemd/system/heron.service`, uncomment `Wants=steller.service` and `After=steller.service`, then `sudo systemctl daemon-reload`.
+2. In `/etc/heron/heron.env`, set `CACHE_BACKEND=layered` and `STELLER_ADDRESS=127.0.0.1:3000`.
+3. `sudo systemctl restart heron`, and check `/health/cache` reports `layered` and `healthy`.
+
+Use `layered`, not `steller`, until steller reads a command that arrives in more than one piece. See `../architecture/decisions.md`.
+
+To see that it holds, read a repository's `fetched_at`, restart heron, and read it again. A restart empties the memory layer, so the same time means the snapshot came from steller. Then stop steller: `/stats` still answers 200 and `/health/cache` says `unreachable`.

@@ -1,6 +1,6 @@
 # Hosting
 
-**Status: live since 2026-09-29 at `https://api.scadoshi.dev`, on `CACHE_BACKEND=memory`.** steller is not installed yet.
+**Status: live since 2026-09-29 at `https://api.scadoshi.dev`, on `CACHE_BACKEND=layered`.** steller runs beside it.
 
 ## Where it runs
 
@@ -13,7 +13,7 @@ Sharing zerver's box was the first plan and was dropped. See "Its own box" in `d
 | Service | Binds | Unit |
 |---|---|---|
 | heron | `127.0.0.1:3100` | `deploy/heron.service`, in this repo |
-| steller, not yet installed | `127.0.0.1:3000`, hardcoded | `deploy/steller.service`, in steller's repo |
+| steller | `127.0.0.1:3000`, hardcoded | `deploy/steller.service`, in steller's repo |
 | cloudflared | outbound only | installed with the package |
 
 Both servers bind loopback. Nothing listens on a public interface.

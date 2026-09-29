@@ -19,6 +19,20 @@ Plus [`CLAUDE.md`](CLAUDE.md), the rules for working in the repo.
 
 The running log, newest first. Update it when something ships. [`progress/todo.md`](progress/todo.md) holds what is still open.
 
+## 2026-09-29: steller in production
+
+steller runs on the box under its own unit, capped at 256M, and heron runs on it with `CACHE_BACKEND=layered`. `deploy/steller.service` had never been loaded before either, and it passed `systemd-analyze verify` and started on the first try.
+
+Checked on the box: a repository's `fetched_at` was the same before and after a restart of heron, so the snapshot came from steller and not from GitHub. With steller stopped, `/stats` answered 200 and `/health/cache` said `unreachable`. With it started again, health returned to `healthy`. The log recorded the outage once and the recovery once.
+
+### The bug is wider than it was first written up
+
+The first `PING` sent to steller on the box came back `-ERR missing crlf terminator`. The second came back `+PONG`. bash's `printf` had written the command a line at a time, and steller read the first part before the rest arrived.
+
+So the bug found earlier in the day is not a limit of 1024 bytes. steller rejects any command that reaches it in more than one read, and 1024 bytes is only the size past which that always happens. `architecture/decisions.md` is corrected. The cause is the same and so is the fix.
+
+heron sends each command with one write over loopback, closes the connection after a rejection, and has the memory layer behind it, so it is not affected in practice. Anything that talks to steller over a real network would be.
+
 ## 2026-09-29: deployed
 
 heron is live at `https://api.scadoshi.dev`, serving all eleven repositories on the portfolio from `CACHE_BACKEND=memory`. It runs on a Hetzner CX23 of its own, behind a Cloudflare Tunnel, with every inbound port but SSH closed.
@@ -27,7 +41,7 @@ heron is live at `https://api.scadoshi.dev`, serving all eleven repositories on 
 
 Checked from outside: the commit count for steller matches `gh api`, stats responses carry the edge cache header, a repository that is not configured and a path traversal attempt both answer 404, CORS allows `https://scottyfermo.com` and no other origin, and a request to the box's own address on port 3100 gets no answer.
 
-Still open: steller is not on the box, so the cache is the in-process map. Plain HTTP to the hostname answers 200 where it could redirect, which "Always Use HTTPS" in Cloudflare would close. `.github/workflows/deploy.yml` has never run, so a deploy is still done by hand.
+Still open when this was written: steller was not on the box. Plain HTTP to the hostname answers 200 where it could redirect, which "Always Use HTTPS" in Cloudflare would close. `.github/workflows/deploy.yml` has never run, so a deploy is still done by hand.
 
 ## 2026-09-29: built, and steller's first production bug
 
