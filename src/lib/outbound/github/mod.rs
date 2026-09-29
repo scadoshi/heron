@@ -27,7 +27,7 @@ use std::{collections::HashMap, time::Duration};
 use thiserror::Error;
 
 /// GitHub rejects a request that carries no `User-Agent`.
-const USER_AGENT: &str = "scotland-server (+https://github.com/scadoshi/scotland-server)";
+const USER_AGENT: &str = "heron (+https://github.com/scadoshi/heron)";
 const API_VERSION: &str = "2022-11-28";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 

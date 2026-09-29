@@ -1,6 +1,6 @@
 # Structure
 
-One crate. The library is `scotland` (`src/lib/lib.rs`) and the binary is `scotland-server` (`src/bin/scotland_server.rs`).
+One crate. The library is `heron` (`src/lib/lib.rs`) and the binary is `heron` (`src/bin/heron.rs`).
 
 ## Layers
 

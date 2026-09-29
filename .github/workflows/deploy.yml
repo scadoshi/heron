@@ -60,9 +60,9 @@ jobs:
 
       - name: Deploy
         run: |
-          sudo systemctl stop scotland-server
-          cp target/release/scotland-server ~/scotland-server/
-          sudo systemctl start scotland-server
+          sudo systemctl stop heron
+          cp target/release/heron ~/heron/
+          sudo systemctl start heron
 
       - name: Confirm it serves
         # The unit starting is not the server serving. Ask it.
@@ -73,6 +73,6 @@ jobs:
             fi
             sleep 0.2
           done
-          echo "scotland-server never answered /health" >&2
-          sudo journalctl -u scotland-server -n 50 --no-pager >&2
+          echo "heron never answered /health" >&2
+          sudo journalctl -u heron -n 50 --no-pager >&2
           exit 1

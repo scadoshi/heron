@@ -10,7 +10,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use scotland::{
+use heron::{
     domain::stats::{
         models::{cache_key::CacheKey, repo_name::RepoName},
         ports::StatsCache,

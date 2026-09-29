@@ -16,7 +16,7 @@
 mod common;
 
 use common::{StubSource, TestClock, repo};
-use scotland::{
+use heron::{
     domain::stats::{
         models::cache_key::CacheKey,
         ports::{StatsCache, StatsService},

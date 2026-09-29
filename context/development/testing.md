@@ -42,7 +42,7 @@ cd ~/Developer/steller && cargo build --release
 mkdir -p /tmp/steller-live/cache && cd /tmp/steller-live
 ~/Developer/steller/target/release/steller < /dev/null &
 
-cd ~/Developer/scotland-server
+cd ~/Developer/heron
 STELLER_ADDRESS=127.0.0.1:3000 cargo test --test live_steller -- --ignored
 ```
 

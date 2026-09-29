@@ -6,7 +6,7 @@
 
 On the box that runs zerver: Ubuntu Server, headless, x86_64, behind a Cloudflare Tunnel. That box is described in zwipe's `context/architecture/hosting.md`.
 
-The owner chose one box over two. The cost of that choice is that scotland-server and steller share a failure domain with Zwipe's production API and its Postgres, so both run under systemd with memory and task caps.
+The owner chose one box over two. The cost of that choice is that heron and steller share a failure domain with Zwipe's production API and its Postgres, so both run under systemd with memory and task caps.
 
 ## Ports on that box
 
@@ -14,7 +14,7 @@ The owner chose one box over two. The cost of that choice is that scotland-serve
 |---|---|
 | 3000 | zerver, bound `0.0.0.0:3000` |
 | 3000 | steller, hardcoded `127.0.0.1:3000` |
-| 3100 | scotland-server, by convention in `.env.example` |
+| 3100 | heron, by convention in `.env.example` |
 | 5432 | Postgres |
 
 **The first two collide.** steller cannot start on that box until its bind address is configurable. That is work in steller, and it blocks `CACHE_BACKEND=steller` and `layered` in production. `CACHE_BACKEND=memory` is not blocked.

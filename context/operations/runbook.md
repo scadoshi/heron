@@ -7,7 +7,7 @@ Written before the first deploy. The commands are right for a systemd box. The s
 ```bash
 curl -fsS http://127.0.0.1:3100/health          # the server
 curl -fsS http://127.0.0.1:3100/health/cache    # the cache behind it
-systemctl status scotland-server
+systemctl status heron
 ```
 
 `/health/cache` always answers 200. Read the body: `status` is `healthy` or `unreachable`.
@@ -15,14 +15,14 @@ systemctl status scotland-server
 ## Logs
 
 ```bash
-journalctl -u scotland-server -f                 # follow
-journalctl -u scotland-server -n 200 --no-pager  # the last 200 lines
-journalctl -u scotland-server -p warning         # warnings and errors only
+journalctl -u heron -f                 # follow
+journalctl -u heron -n 200 --no-pager  # the last 200 lines
+journalctl -u heron -p warning         # warnings and errors only
 ```
 
 Every request line carries an `x-request-id`, and the same id is in the response headers.
 
-To log more, set `RUST_LOG=info,scotland=debug` in `.env` and restart.
+To log more, set `RUST_LOG=info,heron=debug` in `.env` and restart.
 
 ## What each failure looks like
 
@@ -35,14 +35,14 @@ To log more, set `RUST_LOG=info,scotland=debug` in `.env` and restart.
 | Every request for one repository reaches GitHub | `cache write failed for ...: steller rejected the command: ERR missing crlf terminator` | The snapshot is over steller's 1024-byte limit. See `../architecture/decisions.md`. Use `layered` until steller is fixed. |
 | 404 `repository not found` | `404 repository not found` | The repository is not in `GITHUB_REPOS`, is private, was deleted, or the name does not parse. The response does not say which, on purpose. The log does not either. Check the allowlist. |
 | 429 | nothing | One client passed 30 requests in a burst. |
-| The service will not start | `scotland-server failed: ...` | A bad or missing variable. The message names it. |
+| The service will not start | `heron failed: ...` | A bad or missing variable. The message names it. |
 
 ## Switch the cache backend
 
-Edit `CACHE_BACKEND` in `~/scotland-server/.env`, and `STELLER_ADDRESS` if needed, then:
+Edit `CACHE_BACKEND` in `~/heron/.env`, and `STELLER_ADDRESS` if needed, then:
 
 ```bash
-sudo systemctl restart scotland-server
+sudo systemctl restart heron
 curl -fsS http://127.0.0.1:3100/health/cache
 ```
 
@@ -51,8 +51,8 @@ Going to `memory` loses nothing that matters. The first request for each reposit
 ## Rotate the GitHub token
 
 1. Create the new token: fine-grained, read-only, public repositories.
-2. Replace `GITHUB_TOKEN` in `~/scotland-server/.env`.
-3. `sudo systemctl restart scotland-server`
+2. Replace `GITHUB_TOKEN` in `~/heron/.env`.
+3. `sudo systemctl restart heron`
 4. Check the startup line in the log says `github token set`.
 5. Revoke the old token.
 
@@ -68,10 +68,10 @@ A private repository can be listed without harm. It is refused when first read a
 
 Under `memory`, restart the server.
 
-Under `steller` or `layered`, the key is `scotland:stats:v1:owner/name`. steller has `DEL`:
+Under `steller` or `layered`, the key is `heron:stats:v1:owner/name`. steller has `DEL`:
 
 ```bash
-redis-cli -p <steller port> DEL scotland:stats:v1:scadoshi/steller
+redis-cli -p <steller port> DEL heron:stats:v1:scadoshi/steller
 ```
 
 Under `layered` the memory layer holds a copy, so restart the server as well.

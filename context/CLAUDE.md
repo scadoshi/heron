@@ -2,11 +2,17 @@
 
 The rules for working in this repo. Read this before changing anything.
 
+## Name
+
+The great blue heron: Seattle's city bird, found on every shoreline in Washington. It stands in the shallows without moving, waits, and takes what comes past. This server does the same with GitHub's API. Named alongside `steller` and `chickadee`, the other two birds from the same forest.
+
+It was scotland-server for its first day. Anything still saying so is stale.
+
 ## Project Overview
 
-scotland-server is Scotty Fermo's personal server. It serves GitHub statistics for the projects on scottyfermo.com as JSON, and caches them behind a port so the store can be an in-process map or steller, the Redis-compatible server he wrote (`~/Developer/steller`). The portfolio reads this API when it builds and bakes the numbers into static HTML, so the site never depends on this server being up.
+heron is Scotty Fermo's personal server. It serves GitHub statistics for the projects on scottyfermo.com as JSON, and caches them behind a port so the store can be an in-process map or steller, the Redis-compatible server he wrote (`~/Developer/steller`). The portfolio reads this API when it builds and bakes the numbers into static HTML, so the site never depends on this server being up.
 
-Single crate: a library named `scotland` and a binary named `scotland-server`.
+Single crate: a library named `heron` and a binary named `heron`.
 
 ## Working here as an AI
 
@@ -41,7 +47,7 @@ Time reaches the domain through the `Clock` port. That is what lets the freshnes
 
 ```
 src/
-├── bin/scotland_server.rs   composition root
+├── bin/heron.rs             composition root
 └── lib/
     ├── lib.rs
     ├── config.rs            environment, validated at startup
@@ -97,7 +103,7 @@ To add a method to a service:
 
 1. Implement `StatsCache` in a new file under `outbound/cache/`. Bytes in, bytes out. The service owns the encoding.
 2. Add a variant to `CacheBackend` in `config.rs` and parse it from `CACHE_BACKEND`.
-3. Add the arm in `src/bin/scotland_server.rs`.
+3. Add the arm in `src/bin/heron.rs`.
 4. Run `tests/live_steller.rs` against it if it speaks RESP.
 
 ## Common Commands

@@ -11,7 +11,7 @@ These are in steller, which the owner writes by hand.
 
 - [ ] Create the GitHub token: fine-grained, read-only, public repositories.
 - [ ] Choose the public hostname and add the Cloudflare Tunnel route.
-- [ ] Load `deploy/scotland-server.service` on the box and run `systemd-analyze verify` on it. It has never been loaded.
+- [ ] Load `deploy/heron.service` on the box and run `systemd-analyze verify` on it. It has never been loaded.
 - [ ] Run steller under its own unit with `MemoryMax=` set. It has no memory bound and no eviction.
 - [ ] Run `.github/workflows/deploy.yml` once by hand, then decide whether to deploy on push.
 - [ ] Correct `../operations/deploy.md` against what actually happened.

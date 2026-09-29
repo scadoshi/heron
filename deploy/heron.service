@@ -1,13 +1,13 @@
 # Not verified: this unit has never been loaded by systemd. Before enabling it, run
 #
-#   systemd-analyze verify /etc/systemd/system/scotland-server.service
+#   systemd-analyze verify /etc/systemd/system/heron.service
 #
 # Paths follow zerver's layout on the same box. Setup is in
 # context/operations/deploy.md.
 
 [Unit]
-Description=scotland-server, GitHub stats for scottyfermo.com
-Documentation=https://github.com/scadoshi/scotland-server
+Description=heron, GitHub stats for scottyfermo.com
+Documentation=https://github.com/scadoshi/heron
 Wants=network-online.target
 After=network-online.target
 # With CACHE_BACKEND=steller or layered, uncomment both so steller starts first.
@@ -18,9 +18,9 @@ After=network-online.target
 [Service]
 Type=simple
 User=scadoshi
-WorkingDirectory=/home/scadoshi/scotland-server
-EnvironmentFile=/home/scadoshi/scotland-server/.env
-ExecStart=/home/scadoshi/scotland-server/scotland-server
+WorkingDirectory=/home/scadoshi/heron
+EnvironmentFile=/home/scadoshi/heron/.env
+ExecStart=/home/scadoshi/heron/heron
 
 # The exit code is non-zero on any startup failure.
 Restart=on-failure

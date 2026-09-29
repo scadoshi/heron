@@ -1,4 +1,4 @@
-# scotland-server
+# heron
 
 My personal server. Right now it does one thing: serves GitHub stats for the projects on [scottyfermo.com](https://scottyfermo.com) as JSON.
 
@@ -67,5 +67,9 @@ STELLER_ADDRESS=127.0.0.1:3000 cargo test --test live_steller -- --ignored
 ## Layout
 
 Ports and adapters in one crate. `domain/` knows nothing about HTTP, GitHub, RESP or the clock. How it fits together, why, and how to work in it are under [`context/`](context/), starting at [`context/README.md`](context/README.md).
+
+## Name
+
+The great blue heron, Seattle's city bird. It stands in the shallows, waits, and takes what comes past. [steller](https://github.com/scadoshi/steller) and [chickadee](https://github.com/scadoshi/chickadee) are the other two birds.
 
 Not deployed yet. What is left is in [`context/progress/todo.md`](context/progress/todo.md).

@@ -6,14 +6,14 @@ mod common;
 
 use axum::http::StatusCode;
 use common::{DeadCache, TestApp};
-use scotland::inbound::http::routes::{CACHE_HEALTH_ROUTE, HEALTH_ROUTE, ROOT_ROUTE};
+use heron::inbound::http::routes::{CACHE_HEALTH_ROUTE, HEALTH_ROUTE, ROOT_ROUTE};
 
 #[tokio::test]
 async fn root_names_the_package_and_version() {
     let reply = TestApp::new(&["a/b"]).get(ROOT_ROUTE).await;
     assert_eq!(reply.status, StatusCode::OK);
     let body = reply.json();
-    assert_eq!(body["message"], "scotland-server");
+    assert_eq!(body["message"], "heron");
     assert_eq!(body["version"], env!("CARGO_PKG_VERSION"));
     assert_eq!(body["status"], "ready");
 }

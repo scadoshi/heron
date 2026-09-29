@@ -8,14 +8,14 @@ use std::ops::Deref;
 /// [`RepoStats`]: crate::domain::stats::models::repo_stats::RepoStats
 const SCHEMA_VERSION: u32 = 1;
 
-/// Key a repository's snapshot is stored under: `scotland:stats:v1:owner/name`.
+/// Key a repository's snapshot is stored under: `heron:stats:v1:owner/name`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CacheKey(String);
 
 impl CacheKey {
     /// The key for `repo` at the current schema version.
     pub fn for_repo(repo: &RepoName) -> Self {
-        Self(format!("scotland:stats:v{SCHEMA_VERSION}:{repo}"))
+        Self(format!("heron:stats:v{SCHEMA_VERSION}:{repo}"))
     }
 
     /// The key as bytes, the form a cache adapter sends.
@@ -46,7 +46,7 @@ mod tests {
         let repo = RepoName::new("scadoshi/steller").unwrap();
         assert_eq!(
             &*CacheKey::for_repo(&repo),
-            "scotland:stats:v1:scadoshi/steller"
+            "heron:stats:v1:scadoshi/steller"
         );
     }
 }

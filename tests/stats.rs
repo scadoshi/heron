@@ -6,7 +6,7 @@ mod common;
 
 use axum::http::StatusCode;
 use common::{ALLOWED_ORIGIN, DeadCache, FRESH_SECS, Outcome, TestApp, repo};
-use scotland::inbound::http::routes::STATS_ROUTE;
+use heron::inbound::http::routes::STATS_ROUTE;
 use serde_json::json;
 
 #[tokio::test]

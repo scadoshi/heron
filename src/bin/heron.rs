@@ -1,6 +1,6 @@
 //! Composition root. Wires adapters into services and starts the HTTP server.
 
-use scotland::{
+use heron::{
     config::{CacheBackend, Config},
     domain::{
         health::{self, ports::ErasedHealthService},
@@ -29,7 +29,7 @@ async fn main() -> ExitCode {
             // whether to restart.
             #[allow(clippy::print_stderr)]
             {
-                eprintln!("scotland-server failed: {error:#}");
+                eprintln!("heron failed: {error:#}");
             }
             ExitCode::FAILURE
         }
@@ -48,7 +48,7 @@ async fn run() -> anyhow::Result<()> {
         .init();
 
     tracing::info!(
-        "scotland-server v{} serving {} repositories, cache {:?}, github token {}",
+        "heron v{} serving {} repositories, cache {:?}, github token {}",
         env!("CARGO_PKG_VERSION"),
         config.github_repos.len(),
         config.cache_backend,

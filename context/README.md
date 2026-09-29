@@ -57,8 +57,12 @@ The second half of it mattered more than the first. After a rejected command the
 
 CI had Rust 1.98 and the laptop had 1.97. Between them clippy gained `unused_async_trait_impl`, which is in `pedantic`, and it fired on every adapter method that is `async` to satisfy a port and awaits nothing. Those methods now do their work when called and return `std::future::ready`. The other three jobs passed on the first run, the live tests against steller among them. `development/commit_guidelines.md` says how to reproduce a lint from a newer release.
 
+### Renamed to heron
+
+The server was scotland-server until the end of its first day. The repository, the crate, the library, the binary, the systemd unit and the cache key prefix all changed with it, so a key written under `scotland:stats:v1:` is not read. Nothing was deployed, so nothing was lost.
+
 ### Not verified
 
-- `deploy/scotland-server.service` has never been loaded by systemd.
+- `deploy/heron.service` has never been loaded by systemd.
 - `.github/workflows/deploy.yml` has never run, and there is no server for it to run on.
 - The live tests have not been run against real Redis, only steller.

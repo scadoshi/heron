@@ -83,7 +83,7 @@ pub struct Config {
     pub stats_retain: Duration,
 
     /// Tracing filter. A bare level (`info`) or per-target directives
-    /// (`info,scotland=debug`).
+    /// (`info,heron=debug`).
     pub rust_log: String,
 }
 

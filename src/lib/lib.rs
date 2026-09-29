@@ -1,4 +1,4 @@
-//! scotland-server: Scotty Fermo's personal server.
+//! heron: Scotty Fermo's personal server.
 //!
 //! Serves GitHub statistics for the projects on scottyfermo.com as JSON, cached behind
 //! a port so the store can be an in-process map or steller.
@@ -13,7 +13,7 @@
 //! - [`inbound`]: the HTTP API
 //! - [`outbound`]: GitHub, the cache adapters, and the system clock
 //!
-//! `src/bin/scotland_server.rs` wires adapters into services and starts the server.
+//! `src/bin/heron.rs` wires adapters into services and starts the server.
 
 #![warn(missing_docs)]
 

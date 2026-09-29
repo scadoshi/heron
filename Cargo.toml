@@ -1,19 +1,19 @@
 [package]
-name = "scotland-server"
+name = "heron"
 version = "0.1.0"
 authors = ["Scotty Fermo <scottyfermo@hotmail.com>"]
 edition = "2024"
 license = "MIT"
 description = "Scotty Fermo's personal server. Serves GitHub stats for his portfolio, cached in steller."
-repository = "https://github.com/scadoshi/scotland-server"
+repository = "https://github.com/scadoshi/heron"
 
 [lib]
-name = "scotland"
+name = "heron"
 path = "src/lib/lib.rs"
 
 [[bin]]
-name = "scotland-server"
-path = "src/bin/scotland_server.rs"
+name = "heron"
+path = "src/bin/heron.rs"
 
 [dependencies]
 anyhow = "1.0.100"

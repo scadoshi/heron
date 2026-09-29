@@ -34,14 +34,14 @@ async fn free_address() -> SocketAddr {
 
 /// An empty directory to run in, so no stray `.env` is read.
 fn scratch_dir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("scotland-{name}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("heron-{name}-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
 
 /// Starts the server with exactly `vars` as its environment.
 fn start(name: &str, vars: &[(&str, &str)]) -> Child {
-    Command::new(env!("CARGO_BIN_EXE_scotland-server"))
+    Command::new(env!("CARGO_BIN_EXE_heron"))
         .current_dir(scratch_dir(name))
         .env_clear()
         .envs(vars.iter().copied())
