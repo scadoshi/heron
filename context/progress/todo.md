@@ -3,8 +3,8 @@
 ## Finish the deploy
 
 - [ ] Turn on "Always Use HTTPS" for `scadoshi.dev` in Cloudflare. Plain HTTP to `api.scadoshi.dev` answers 200 today.
-- [ ] Put the token's expiry, 2026-12-28, in a calendar. When it lapses heron drops to 60 requests an hour and starts serving `stale: true`. Rotation is in `../operations/runbook.md`.
-- [ ] Set the box's hostname to `heron`. It is still `ubuntu-4gb-nbg1-1`.
+- [x] The token expires 2026-12-28 and the reminder is set. When it lapses heron drops to 60 requests an hour and starts serving `stale: true`. Rotation is in `../operations/runbook.md`.
+- [x] The box's hostname is `heron`.
 - [ ] Run `.github/workflows/deploy.yml` once by hand, then decide whether to deploy on push. Until then a deploy is `git pull`, build, `install`, restart, by hand on the box.
 
 ## Fix in steller
@@ -16,5 +16,5 @@ This is in steller, which the owner writes by hand.
 
 ## Use it
 
-- [ ] Have the portfolio read `https://api.scadoshi.dev/stats` at build time. That change is in the portfolio repo.
+- [x] The portfolio reads `https://api.scadoshi.dev/stats` at build time and every morning. A repository added to the portfolio has to be added to `GITHUB_REPOS` in `/etc/heron/heron.env` as well.
 - [ ] Run `tests/live_steller.rs` against real Redis. It should pass unchanged.
