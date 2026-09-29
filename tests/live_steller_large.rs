@@ -1,8 +1,8 @@
 //! A value larger than one read. `#[ignore]`, and not part of CI.
 //!
-//! steller at 8628070 fails this: a command longer than 1024 bytes is answered
-//! `ERR missing crlf terminator`. Redis passes it. See
-//! `context/architecture/decisions.md`.
+//! steller at 8628070 fails this. It answers `ERR missing crlf terminator` to a
+//! command that reaches it in more than one read, and it reads 1024 bytes at a time.
+//! Redis passes it. See `context/architecture/decisions.md`.
 //!
 //! ```sh
 //! STELLER_ADDRESS=127.0.0.1:3000 cargo test --test live_steller_large -- --ignored
@@ -20,7 +20,7 @@ use heron::{
 use std::time::Duration;
 
 #[tokio::test]
-#[ignore = "needs a running steller, and fails until steller reads commands past 1024 bytes"]
+#[ignore = "needs a running steller, and fails until steller reads a command split across reads"]
 async fn a_value_larger_than_one_read_round_trips() {
     let address = std::env::var("STELLER_ADDRESS").unwrap_or_else(|_| "127.0.0.1:3000".into());
     let cache =

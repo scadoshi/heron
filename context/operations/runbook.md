@@ -32,7 +32,7 @@ To log more, set `RUST_LOG=info,heron=debug` in `/etc/heron/heron.env` and resta
 | 503 `stats are temporarily unavailable` | `503 github rate limit exhausted` or `503 github request failed` | GitHub could not be reached and there is no snapshot to fall back on. Usually just after a restart with a cold cache. |
 | 200, and `/health/cache` says `unreachable` | `steller cache is down, serving from memory`, once | steller is down under `layered`. Requests are fine. Restart steller. |
 | 200, and `/health/cache` says `healthy` again | `steller cache is answering again`, once | steller came back. |
-| Every request for one repository reaches GitHub | `cache write failed for ...: steller rejected the command: ERR missing crlf terminator` | The snapshot is over steller's 1024-byte limit. See `../architecture/decisions.md`. Use `layered` until steller is fixed. |
+| Every request for one repository reaches GitHub | `cache write failed for ...: steller rejected the command: ERR missing crlf terminator` | steller rejected a write that reached it in pieces, which a snapshot over about 950 bytes always does. See `../architecture/decisions.md`. Under `layered` the memory layer covers it. |
 | 404 `repository not found` | `404 repository not found` | The repository is not in `GITHUB_REPOS`, is private, was deleted, or the name does not parse. The response does not say which, on purpose. The log does not either. Check the allowlist. |
 | 429 | nothing | One client passed 30 requests in a burst. |
 | The service will not start | `heron failed: ...` | A bad or missing variable. The message names it. |

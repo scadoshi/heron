@@ -67,6 +67,6 @@ Only a source that could not answer falls back this way: `RateLimited` and `Upst
 | `tests/health.rs`, `tests/stats.rs` | the real router, service and memory cache, through `oneshot` | nothing |
 | `tests/binary.rs` | the real executable, spawned | nothing |
 | `tests/live_steller.rs` | the steller adapter | a running steller |
-| `tests/live_steller_large.rs` | the reproduction of steller's 1024-byte limit | a running steller, and fails against it today |
+| `tests/live_steller_large.rs` | the reproduction of steller rejecting a command split across reads | a running steller, and fails against it today |
 
 More in `development/testing.md`.
