@@ -6,6 +6,7 @@ use crate::domain::stats::{
 };
 use std::{
     collections::HashMap,
+    future::{Future, ready},
     sync::{Arc, Mutex, MutexGuard, PoisonError},
     time::{Duration, Instant},
 };
@@ -35,26 +36,20 @@ impl MemoryCache {
     fn entries(&self) -> MutexGuard<'_, Entries> {
         self.entries.lock().unwrap_or_else(PoisonError::into_inner)
     }
-}
 
-impl StatsCache for MemoryCache {
-    fn backend(&self) -> &'static str {
-        "memory"
-    }
-
-    async fn get(&self, key: &CacheKey) -> Result<Option<Vec<u8>>, CacheError> {
+    fn lookup(&self, key: &CacheKey) -> Option<Vec<u8>> {
         let mut entries = self.entries();
         match entries.get(&**key) {
-            Some((deadline, value)) if Instant::now() < *deadline => Ok(Some(value.clone())),
+            Some((deadline, value)) if Instant::now() < *deadline => Some(value.clone()),
             Some(_) => {
                 entries.remove(&**key);
-                Ok(None)
+                None
             }
-            None => Ok(None),
+            None => None,
         }
     }
 
-    async fn set(&self, key: &CacheKey, value: &[u8], retain: Duration) -> Result<(), CacheError> {
+    fn store(&self, key: &CacheKey, value: &[u8], retain: Duration) -> Result<(), CacheError> {
         let deadline = Instant::now()
             .checked_add(retain)
             .ok_or_else(|| CacheError(anyhow::anyhow!("retain window overflows the clock")))?;
@@ -62,9 +57,33 @@ impl StatsCache for MemoryCache {
             .insert(key.to_string(), (deadline, value.to_vec()));
         Ok(())
     }
+}
 
-    async fn ping(&self) -> Result<(), CacheError> {
-        Ok(())
+/// Nothing here waits on anything, so each method does its work when called and
+/// returns a future that is already complete.
+impl StatsCache for MemoryCache {
+    fn backend(&self) -> &'static str {
+        "memory"
+    }
+
+    fn get(
+        &self,
+        key: &CacheKey,
+    ) -> impl Future<Output = Result<Option<Vec<u8>>, CacheError>> + Send {
+        ready(Ok(self.lookup(key)))
+    }
+
+    fn set(
+        &self,
+        key: &CacheKey,
+        value: &[u8],
+        retain: Duration,
+    ) -> impl Future<Output = Result<(), CacheError>> + Send {
+        ready(self.store(key, value, retain))
+    }
+
+    fn ping(&self) -> impl Future<Output = Result<(), CacheError>> + Send {
+        ready(Ok(()))
     }
 }
 

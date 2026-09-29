@@ -45,6 +45,7 @@ use scotland::{
 use serde_json::Value;
 use std::{
     collections::HashMap,
+    future::{Future, ready},
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::{
         Arc, Mutex,
@@ -117,7 +118,16 @@ impl StubSource {
 }
 
 impl StatsSource for StubSource {
-    async fn repo_stats(&self, repo: &RepoName) -> Result<RepoStats, StatsError> {
+    fn repo_stats(
+        &self,
+        repo: &RepoName,
+    ) -> impl Future<Output = Result<RepoStats, StatsError>> + Send {
+        ready(self.answer_for(repo))
+    }
+}
+
+impl StubSource {
+    fn answer_for(&self, repo: &RepoName) -> Result<RepoStats, StatsError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         let outcome = self.outcomes.lock().unwrap().get(repo).cloned();
         match outcome.unwrap_or(Outcome::Commits(10)) {
@@ -159,16 +169,24 @@ impl StatsCache for DeadCache {
         "dead"
     }
 
-    async fn get(&self, _: &CacheKey) -> Result<Option<Vec<u8>>, CacheError> {
-        Err(CacheError(anyhow::anyhow!("no answer")))
+    fn get(
+        &self,
+        _: &CacheKey,
+    ) -> impl Future<Output = Result<Option<Vec<u8>>, CacheError>> + Send {
+        ready(Err(CacheError(anyhow::anyhow!("no answer"))))
     }
 
-    async fn set(&self, _: &CacheKey, _: &[u8], _: Duration) -> Result<(), CacheError> {
-        Err(CacheError(anyhow::anyhow!("no answer")))
+    fn set(
+        &self,
+        _: &CacheKey,
+        _: &[u8],
+        _: Duration,
+    ) -> impl Future<Output = Result<(), CacheError>> + Send {
+        ready(Err(CacheError(anyhow::anyhow!("no answer"))))
     }
 
-    async fn ping(&self) -> Result<(), CacheError> {
-        Err(CacheError(anyhow::anyhow!("no answer")))
+    fn ping(&self) -> impl Future<Output = Result<(), CacheError>> + Send {
+        ready(Err(CacheError(anyhow::anyhow!("no answer"))))
     }
 }
 

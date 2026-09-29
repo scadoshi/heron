@@ -20,6 +20,7 @@ use crate::domain::{
 use chrono::{DateTime, TimeDelta, TimeZone, Utc};
 use std::{
     collections::HashMap,
+    future::{Future, ready},
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -217,28 +218,39 @@ impl StatsCache for FakeCache {
         "fake"
     }
 
-    async fn get(&self, key: &CacheKey) -> Result<Option<Vec<u8>>, CacheError> {
+    fn get(
+        &self,
+        key: &CacheKey,
+    ) -> impl Future<Output = Result<Option<Vec<u8>>, CacheError>> + Send {
         let state = self.0.lock().unwrap();
-        if state.fail_reads {
-            return Err(CacheError(anyhow::anyhow!("read refused")));
-        }
-        Ok(state.entries.get(&**key).cloned())
+        ready(if state.fail_reads {
+            Err(CacheError(anyhow::anyhow!("read refused")))
+        } else {
+            Ok(state.entries.get(&**key).cloned())
+        })
     }
 
-    async fn set(&self, key: &CacheKey, value: &[u8], retain: Duration) -> Result<(), CacheError> {
+    fn set(
+        &self,
+        key: &CacheKey,
+        value: &[u8],
+        retain: Duration,
+    ) -> impl Future<Output = Result<(), CacheError>> + Send {
         let mut state = self.0.lock().unwrap();
-        if state.fail_writes {
-            return Err(CacheError(anyhow::anyhow!("write refused")));
-        }
-        state.last_retain = Some(retain);
-        state.entries.insert(key.to_string(), value.to_vec());
-        Ok(())
+        ready(if state.fail_writes {
+            Err(CacheError(anyhow::anyhow!("write refused")))
+        } else {
+            state.last_retain = Some(retain);
+            state.entries.insert(key.to_string(), value.to_vec());
+            Ok(())
+        })
     }
 
-    async fn ping(&self) -> Result<(), CacheError> {
-        if self.0.lock().unwrap().fail_pings {
-            return Err(CacheError(anyhow::anyhow!("no answer")));
-        }
-        Ok(())
+    fn ping(&self) -> impl Future<Output = Result<(), CacheError>> + Send {
+        ready(if self.0.lock().unwrap().fail_pings {
+            Err(CacheError(anyhow::anyhow!("no answer")))
+        } else {
+            Ok(())
+        })
     }
 }
