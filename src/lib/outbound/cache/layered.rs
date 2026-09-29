@@ -15,12 +15,16 @@ use std::{
 /// A primary cache with a secondary behind it.
 ///
 /// Reads try the primary and fall through to the secondary on a miss or an error.
-/// Writes go to both, so the secondary already holds the value when the primary goes
-/// away. A write fails only when both do.
+/// Writes go to both, and a value read from the primary is copied into the secondary,
+/// so the secondary holds what was last served when the primary goes away. A write
+/// fails only when both do.
 #[derive(Debug, Clone)]
 pub struct LayeredCache<P: StatsCache, S: StatsCache> {
     primary: P,
     secondary: S,
+    /// How long the secondary keeps a value copied from the primary. The primary does
+    /// not say how long its own copy has left, so this is the full window again.
+    retain: Duration,
     /// Whether the primary failed last time it was asked. Logging keys off the
     /// change, so a dead primary is reported once and its recovery once.
     primary_down: Arc<AtomicBool>,
@@ -28,11 +32,24 @@ pub struct LayeredCache<P: StatsCache, S: StatsCache> {
 
 impl<P: StatsCache, S: StatsCache> LayeredCache<P, S> {
     /// Stacks `primary` over `secondary`.
-    pub fn new(primary: P, secondary: S) -> Self {
+    pub fn new(primary: P, secondary: S, retain: Duration) -> Self {
         Self {
             primary,
             secondary,
+            retain,
             primary_down: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    /// Stores `value` in the secondary unless it already holds exactly that.
+    async fn copy_to_secondary(&self, key: &CacheKey, value: &[u8]) {
+        if let Ok(Some(held)) = self.secondary.get(key).await
+            && held == value
+        {
+            return;
+        }
+        if let Err(error) = self.secondary.set(key, value, self.retain).await {
+            tracing::debug!("copy into {} failed: {error}", self.secondary.backend());
         }
     }
 
@@ -62,6 +79,7 @@ impl<P: StatsCache, S: StatsCache> StatsCache for LayeredCache<P, S> {
         match self.primary.get(key).await {
             Ok(Some(value)) => {
                 self.primary_answered();
+                self.copy_to_secondary(key, &value).await;
                 return Ok(Some(value));
             }
             Ok(None) => self.primary_answered(),
@@ -99,10 +117,36 @@ mod tests {
         let primary = FakeCache::default();
         let secondary = FakeCache::default();
         (
-            LayeredCache::new(primary.clone(), secondary.clone()),
+            LayeredCache::new(primary.clone(), secondary.clone(), Duration::from_mins(5)),
             primary,
             secondary,
         )
+    }
+
+    #[tokio::test]
+    async fn a_primary_hit_is_copied_into_the_secondary() {
+        let (cache, primary, secondary) = layered();
+        primary.put(&key(), b"v");
+        assert_eq!(cache.get(&key()).await.unwrap().as_deref(), Some(&b"v"[..]));
+        assert_eq!(
+            secondary.get(&key()).await.unwrap().as_deref(),
+            Some(&b"v"[..])
+        );
+
+        primary.fail_reads(true);
+        assert_eq!(cache.get(&key()).await.unwrap().as_deref(), Some(&b"v"[..]));
+    }
+
+    #[tokio::test]
+    async fn a_newer_primary_value_replaces_the_copy() {
+        let (cache, primary, secondary) = layered();
+        secondary.put(&key(), b"old");
+        primary.put(&key(), b"new");
+        cache.get(&key()).await.unwrap();
+        assert_eq!(
+            secondary.get(&key()).await.unwrap().as_deref(),
+            Some(&b"new"[..])
+        );
     }
 
     #[tokio::test]

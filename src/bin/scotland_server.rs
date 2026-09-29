@@ -60,6 +60,7 @@ async fn run() -> anyhow::Result<()> {
     );
 
     let github = GitHub::new(&config.github_api_base, config.github_token)?;
+    let retain = config.stats_retain;
     let settings = Settings {
         repos: config.github_repos,
         fresh: config.stats_fresh,
@@ -73,7 +74,7 @@ async fn run() -> anyhow::Result<()> {
         CacheBackend::Steller(address) => services(github, StellerCache::new(address)?, settings),
         CacheBackend::Layered(address) => services(
             github,
-            LayeredCache::new(StellerCache::new(address)?, MemoryCache::new()),
+            LayeredCache::new(StellerCache::new(address)?, MemoryCache::new(), retain),
             settings,
         ),
     };
