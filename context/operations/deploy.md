@@ -1,6 +1,6 @@
 # Deploy
 
-**Not verified.** Nothing here has been run on a server. Treat each step as a draft and correct this file as you go.
+These steps were run on 2026-09-29 and heron came up on the first start. "Adding steller" and "From GitHub Actions" have not been run.
 
 heron runs on its own Hetzner box. `../architecture/hosting.md` says what else is on it and how traffic arrives.
 
@@ -24,7 +24,12 @@ sudo ufw allow OpenSSH
 sudo ufw enable
 ```
 
-Install `cloudflared`, create the tunnel, and route the hostname to `http://127.0.0.1:3100`. zwipe's `context/operations/infrastructure/cloudflare.md` has the steps.
+Then the tunnel, from the Cloudflare dashboard under Networking, Tunnels:
+
+1. Create a tunnel of type Cloudflared. Choose Debian, 64-bit.
+2. Run both commands it shows on the box. The first installs `cloudflared`. The second, `cloudflared service install <token>`, connects it, and the token in it is a credential.
+3. Add a route of the kind called a published application. A private hostname is reachable only through Cloudflare's client and is the wrong kind.
+4. Subdomain `api`, domain `scadoshi.dev`, no path, service URL `http://127.0.0.1:3100`. The scheme is required.
 
 ## Installing heron
 
@@ -57,6 +62,8 @@ sudo systemctl daemon-reload
 sudo systemctl enable heron
 ```
 
+`verify` prints nothing for a unit it accepts. On Ubuntu 26.04 it does print two lines about `CPUAccounting=` in `xfs_scrub_all.service` and `system-xfs_scrub.slice`. Those are Ubuntu's units and not this one.
+
 ## Deploying
 
 Build on the box, or build elsewhere for its architecture and copy the binary over. Hetzner's cheapest plans are ARM, so check `uname -m` before cross-compiling.
@@ -79,8 +86,10 @@ curl -fsS http://127.0.0.1:3100/stats | head -c 300
 And from outside, through the tunnel:
 
 ```bash
-curl -fsS https://<hostname>/health
+curl -fsS https://api.scadoshi.dev/health
 ```
+
+A machine that looked the hostname up before the route existed will have cached the miss and say it cannot resolve the host. Ask a resolver directly with `dig @1.1.1.1 api.scadoshi.dev`.
 
 ## From GitHub Actions
 

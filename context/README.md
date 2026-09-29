@@ -19,6 +19,16 @@ Plus [`CLAUDE.md`](CLAUDE.md), the rules for working in the repo.
 
 The running log, newest first. Update it when something ships. [`progress/todo.md`](progress/todo.md) holds what is still open.
 
+## 2026-09-29: deployed
+
+heron is live at `https://api.scadoshi.dev`, serving all eleven repositories on the portfolio from `CACHE_BACKEND=memory`. It runs on a Hetzner CX23 of its own, behind a Cloudflare Tunnel, with every inbound port but SSH closed.
+
+`deploy/heron.service` was the part that could not be tested on a laptop. It passed `systemd-analyze verify` and the server started under it on the first try, hardening and all. From inside that sandbox it resolved GitHub's name and reached it over TLS with the token.
+
+Checked from outside: the commit count for steller matches `gh api`, stats responses carry the edge cache header, a repository that is not configured and a path traversal attempt both answer 404, CORS allows `https://scottyfermo.com` and no other origin, and a request to the box's own address on port 3100 gets no answer.
+
+Still open: steller is not on the box, so the cache is the in-process map. Plain HTTP to the hostname answers 200 where it could redirect, which "Always Use HTTPS" in Cloudflare would close. `.github/workflows/deploy.yml` has never run, so a deploy is still done by hand.
+
 ## 2026-09-29: built, and steller's first production bug
 
 The whole server went up in one day: domain, three cache adapters, the GitHub adapter, the HTTP layer, config, the binary, CI.
@@ -67,6 +77,6 @@ The first plan was to share zerver's box. The owner changed it to a Hetzner box 
 
 ### Not verified
 
-- `deploy/heron.service` has never been loaded by systemd.
-- `.github/workflows/deploy.yml` has never run, and there is no server for it to run on.
+- `deploy/heron.service` had never been loaded by systemd. It has since; see the entry above.
+- `.github/workflows/deploy.yml` has never run.
 - The live tests have not been run against real Redis, only steller.

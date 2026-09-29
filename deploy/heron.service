@@ -1,4 +1,4 @@
-# Not verified: this unit has never been loaded by systemd. Before enabling it, run
+# Runs on Ubuntu 26.04 as written. Before enabling a changed copy, run
 #
 #   systemd-analyze verify /etc/systemd/system/heron.service
 #
