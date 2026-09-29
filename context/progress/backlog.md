@@ -1,0 +1,23 @@
+# Backlog
+
+Not scheduled. Each has a reason it is not done yet.
+
+## Generate the portfolio's per-project counts
+
+The portfolio's test and line counts are typed by hand in its `data.rs` and have drifted before. Line and test counts are not on GitHub's API, so this needs a source other than the one here: a step in each project's CI that publishes its own numbers, read by this server through a second `StatsSource`. Worth more to the portfolio than any number served today.
+
+## Refresh in the background
+
+A snapshot is refreshed by the first request after it goes stale, and that request waits for GitHub. A task that refreshes ahead of expiry would keep every request fast. Not done because the portfolio reads at build time, where a slow first request costs nothing.
+
+## Conditional requests to GitHub
+
+GitHub answers `304 Not Modified` to a request carrying the `ETag` of the last response, and a 304 does not count against the rate limit. Not done because four requests per repository every six hours is nowhere near the limit with a token.
+
+## A status page
+
+Uptime of the server and of steller, served by the server. This is the claim the project exists to be able to make, so it should be measured and not asserted.
+
+## `TtlMap` in place of per-repository locks
+
+The refresh locks are a map built once from the allowlist. If the allowlist ever becomes dynamic, the map needs eviction and this design stops fitting.
