@@ -9,3 +9,9 @@
 //! domain, never the reverse.
 
 #![warn(missing_docs)]
+
+/// Core models, ports, and services.
+pub mod domain;
+
+#[cfg(test)]
+pub mod test_support;
