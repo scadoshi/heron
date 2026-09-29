@@ -1,0 +1,11 @@
+# Thresholds and behavior only. Lint levels live in Cargo.toml [lints.clippy].
+
+too-many-arguments-threshold = 7
+type-complexity-threshold = 250
+cognitive-complexity-threshold = 25
+
+# Panicking is the right failure mode in a test.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true

@@ -1,0 +1,75 @@
+[package]
+name = "scotland-server"
+version = "0.1.0"
+authors = ["Scotty Fermo <scottyfermo@hotmail.com>"]
+edition = "2024"
+license = "MIT"
+description = "Scotty Fermo's personal server. Serves GitHub stats for his portfolio, cached in steller."
+repository = "https://github.com/scadoshi/scotland-server"
+
+[lib]
+name = "scotland"
+path = "src/lib/lib.rs"
+
+[[bin]]
+name = "scotland-server"
+path = "src/bin/scotland_server.rs"
+
+[dependencies]
+anyhow = "1.0.100"
+axum = { version = "0.8" }
+chrono = { version = "0.4.42", features = ["serde"] }
+dotenvy = "0.15"
+reqwest = { version = "0.12.23", default-features = false, features = ["json", "rustls-tls", "http2"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.145"
+thiserror = "2.0.17"
+tokio = { version = "1.47.1", features = ["full"] }
+tower = { version = "0.5" }
+tower-http = { version = "0.6", features = ["cors", "trace", "catch-panic", "limit", "timeout", "request-id", "util", "compression-gzip", "compression-br", "set-header"] }
+tower_governor = { version = "0.8" }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+http-body-util = "0.1"                             # collect response bodies
+tower = { version = "0.5", features = ["util"] }   # ServiceExt::oneshot
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+
+# never ship
+todo = "deny"
+dbg_macro = "deny"
+unimplemented = "deny"
+
+# no panics outside tests
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+unreachable = "deny"
+indexing_slicing = "deny"
+string_slice = "deny"
+panic_in_result_fn = "deny"
+exit = "deny"
+
+# a server logs through tracing
+print_stdout = "warn"
+print_stderr = "warn"
+
+clone_on_ref_ptr = "warn"
+inefficient_to_string = "warn"
+large_enum_variant = "warn"
+needless_collect = "warn"
+or_fun_call = "warn"
+redundant_clone = "warn"
+too_many_arguments = "warn"
+type_complexity = "warn"
+unnecessary_wraps = "warn"
+unused_async = "warn"
+arithmetic_side_effects = "warn"
+as_conversions = "warn"
