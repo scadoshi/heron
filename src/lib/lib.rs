@@ -13,5 +13,8 @@
 /// Core models, ports, and services.
 pub mod domain;
 
+/// Adapters the domain's ports are implemented by.
+pub mod outbound;
+
 #[cfg(test)]
 pub mod test_support;

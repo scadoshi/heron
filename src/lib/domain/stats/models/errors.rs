@@ -21,11 +21,11 @@ pub enum StatsError {
         reset_at: Option<DateTime<Utc>>,
     },
     /// Anything else that went wrong talking to GitHub.
-    #[error("github request failed: {0}")]
+    #[error("github request failed: {0:#}")]
     Upstream(anyhow::Error),
 }
 
 /// The cache could not be read, written, or reached.
 #[derive(Debug, Error)]
-#[error("cache unavailable: {0}")]
+#[error("cache unavailable: {0:#}")]
 pub struct CacheError(pub anyhow::Error);
