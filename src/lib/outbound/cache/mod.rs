@@ -5,3 +5,6 @@ pub mod layered;
 
 /// An in-process map.
 pub mod memory;
+
+/// steller, over a hand-written RESP client.
+pub mod steller;
