@@ -32,7 +32,8 @@ pub struct NotLoopback(pub SocketAddr);
 /// A cache backed by one connection to steller.
 ///
 /// Commands are serialized behind a lock and the connection is opened on first use.
-/// A failed command drops the connection, and the next one reconnects.
+/// A command that fails or is rejected drops the connection, and the next one
+/// reconnects.
 #[derive(Debug, Clone)]
 pub struct StellerCache {
     address: SocketAddr,
@@ -62,10 +63,7 @@ impl StellerCache {
 
         if let Some(mut reused) = slot.take() {
             match reused.roundtrip(&command, DEADLINE).await {
-                Ok(reply) => {
-                    *slot = Some(reused);
-                    return rejected(reply);
-                }
+                Ok(reply) => return keep_unless_rejected(&mut slot, reused, reply),
                 Err(error) => tracing::debug!("steller connection dropped, reconnecting: {error}"),
             }
         }
@@ -77,24 +75,34 @@ impl StellerCache {
             .roundtrip(&command, DEADLINE)
             .await
             .map_err(unavailable)?;
-        *slot = Some(opened);
-        rejected(reply)
+        keep_unless_rejected(&mut slot, opened, reply)
     }
 }
 
-fn unavailable(error: ConnectionError) -> CacheError {
-    CacheError(anyhow::Error::new(error).context("steller"))
-}
-
-/// Turns an error reply into an error. The connection stays usable after one.
-fn rejected(reply: Reply) -> Result<Reply, CacheError> {
+/// Puts `connection` back for the next command, unless the reply is an error.
+///
+/// A server that rejects a command partway through reading it goes on to read the
+/// rest as new commands and answers each. Those answers would be taken for the
+/// replies to whatever is sent next, so the connection is closed.
+fn keep_unless_rejected(
+    slot: &mut Option<Connection>,
+    connection: Connection,
+    reply: Reply,
+) -> Result<Reply, CacheError> {
     match reply {
         Reply::Error(message) => Err(CacheError(anyhow::anyhow!(
             "steller rejected the command: {}",
             String::from_utf8_lossy(&message)
         ))),
-        reply => Ok(reply),
+        reply => {
+            *slot = Some(connection);
+            Ok(reply)
+        }
     }
+}
+
+fn unavailable(error: ConnectionError) -> CacheError {
+    CacheError(anyhow::Error::new(error).context("steller"))
 }
 
 fn unexpected(command: &str, reply: &Reply) -> CacheError {
@@ -169,6 +177,9 @@ mod tests {
         Silent,
         /// Answers every command with an error reply.
         Refuse,
+        /// Rejects `SET` and follows the rejection with more error replies, as a
+        /// server does after losing its place in the stream. Serves everything else.
+        RejectThenFlood,
     }
 
     /// A RESP server small enough to read in one sitting. Returns its address and a
@@ -205,6 +216,10 @@ mod tests {
                     return;
                 }
                 Behavior::Refuse => b"-ERR refused\r\n".to_vec(),
+                Behavior::RejectThenFlood if parts[0].eq_ignore_ascii_case(b"SET") => {
+                    b"-ERR missing crlf terminator\r\n-ERR unknown sigil\r\n-ERR unknown sigil\r\n"
+                        .to_vec()
+                }
                 _ => answer(&parts, &store).await,
             };
             match behavior {
@@ -380,13 +395,27 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn an_error_reply_is_an_error_and_keeps_the_connection() {
+    async fn an_error_reply_is_an_error_and_closes_the_connection() {
         let (address, accepted) = fake_server(Behavior::Refuse).await;
         let cache = StellerCache::new(address).unwrap();
         for _ in 0..3 {
             let error = cache.ping().await.unwrap_err();
             assert!(error.to_string().contains("ERR refused"), "{error}");
         }
-        assert_eq!(accepted.load(Ordering::SeqCst), 1);
+        assert_eq!(accepted.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn replies_left_over_from_a_rejected_command_are_never_read() {
+        let (address, _) = fake_server(Behavior::RejectThenFlood).await;
+        let cache = StellerCache::new(address).unwrap();
+        assert!(
+            cache
+                .set(&key(), b"v", Duration::from_mins(1))
+                .await
+                .is_err()
+        );
+        assert_eq!(cache.get(&key()).await.unwrap(), None);
+        assert!(cache.ping().await.is_ok());
     }
 }
