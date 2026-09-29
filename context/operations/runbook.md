@@ -22,7 +22,7 @@ journalctl -u heron -p warning         # warnings and errors only
 
 Every request line carries an `x-request-id`, and the same id is in the response headers.
 
-To log more, set `RUST_LOG=info,heron=debug` in `.env` and restart.
+To log more, set `RUST_LOG=info,heron=debug` in `/etc/heron/heron.env` and restart.
 
 ## What each failure looks like
 
@@ -39,7 +39,7 @@ To log more, set `RUST_LOG=info,heron=debug` in `.env` and restart.
 
 ## Switch the cache backend
 
-Edit `CACHE_BACKEND` in `~/heron/.env`, and `STELLER_ADDRESS` if needed, then:
+Edit `CACHE_BACKEND` in `/etc/heron/heron.env`, and `STELLER_ADDRESS` if needed, then:
 
 ```bash
 sudo systemctl restart heron
@@ -51,7 +51,7 @@ Going to `memory` loses nothing that matters. The first request for each reposit
 ## Rotate the GitHub token
 
 1. Create the new token: fine-grained, read-only, public repositories.
-2. Replace `GITHUB_TOKEN` in `~/heron/.env`.
+2. Replace `GITHUB_TOKEN` in `/etc/heron/heron.env`.
 3. `sudo systemctl restart heron`
 4. Check the startup line in the log says `github token set`.
 5. Revoke the old token.
@@ -71,7 +71,7 @@ Under `memory`, restart the server.
 Under `steller` or `layered`, the key is `heron:stats:v1:owner/name`. steller has `DEL`:
 
 ```bash
-redis-cli -p <steller port> DEL heron:stats:v1:scadoshi/steller
+redis-cli -p 3000 DEL heron:stats:v1:scadoshi/steller
 ```
 
 Under `layered` the memory layer holds a copy, so restart the server as well.

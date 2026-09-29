@@ -20,6 +20,22 @@ The cache can run on steller, the Redis-compatible server the owner wrote. For t
 
 ---
 
+## Its own box
+
+**Decided: 2026-09-29.** Replaces the first plan, which was to share zerver's box.
+
+heron and steller run on a Hetzner box of their own.
+
+**Why:** Zwipe has users, two app stores, and a Postgres worth protecting. heron has a number on a web page. steller has no memory bound and no eviction, and zerver's box also compiles Rust on every deploy through a self-hosted runner. Putting an unbounded store beside a database on a machine that spikes on its own schedule is how a stats cache takes down something that matters.
+
+**Also:** steller hardcodes `127.0.0.1:3000` and zerver holds that port. On a shared box steller could not have started at all.
+
+**And:** on its own box steller's uptime is its own. "It has been up for six months" means what it says, with no better-maintained neighbor propping up the number.
+
+**What it costs:** a few euros a month and a second machine to patch.
+
+---
+
 ## steller's 1024-byte command limit, and what the client does about it
 
 **Found: 2026-09-29, at steller 8628070.**

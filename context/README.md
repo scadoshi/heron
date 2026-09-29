@@ -61,6 +61,10 @@ CI had Rust 1.98 and the laptop had 1.97. Between them clippy gained `unused_asy
 
 The server was scotland-server until the end of its first day. The repository, the crate, the library, the binary, the systemd unit and the cache key prefix all changed with it, so a key written under `scotland:stats:v1:` is not read. Nothing was deployed, so nothing was lost.
 
+### It gets its own box
+
+The first plan was to share zerver's box. The owner changed it to a Hetzner box of its own, which removes the port 3000 collision between steller and zerver and keeps an unbounded store away from Zwipe's Postgres. The unit now runs as a `heron` system user from `/usr/local/bin/heron` with its environment in `/etc/heron/heron.env`.
+
 ### Not verified
 
 - `deploy/heron.service` has never been loaded by systemd.

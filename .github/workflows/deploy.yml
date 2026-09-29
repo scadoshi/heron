@@ -61,7 +61,7 @@ jobs:
       - name: Deploy
         run: |
           sudo systemctl stop heron
-          cp target/release/heron ~/heron/
+          sudo install -m 755 target/release/heron /usr/local/bin/heron
           sudo systemctl start heron
 
       - name: Confirm it serves

@@ -4,26 +4,27 @@
 
 ## Where it will run
 
-On the box that runs zerver: Ubuntu Server, headless, x86_64, behind a Cloudflare Tunnel. That box is described in zwipe's `context/architecture/hosting.md`.
+On its own Hetzner box, with steller beside it. Nothing of Zwipe's runs there.
 
-The owner chose one box over two. The cost of that choice is that heron and steller share a failure domain with Zwipe's production API and its Postgres, so both run under systemd with memory and task caps.
+Sharing zerver's box was the first plan and was dropped. See "Its own box" in `decisions.md`.
 
-## Ports on that box
+## What runs on the box
 
-| Port | Held by |
-|---|---|
-| 3000 | zerver, bound `0.0.0.0:3000` |
-| 3000 | steller, hardcoded `127.0.0.1:3000` |
-| 3100 | heron, by convention in `.env.example` |
-| 5432 | Postgres |
+| Service | Binds | Unit |
+|---|---|---|
+| heron | `127.0.0.1:3100` | `deploy/heron.service`, in this repo |
+| steller | `127.0.0.1:3000`, hardcoded | `deploy/steller.service`, in steller's repo |
+| cloudflared | outbound only | installed with the package |
 
-**The first two collide.** steller cannot start on that box until its bind address is configurable. That is work in steller, and it blocks `CACHE_BACKEND=steller` and `layered` in production. `CACHE_BACKEND=memory` is not blocked.
+Both servers bind loopback. Nothing listens on a public interface.
 
-## How traffic will reach it
+## How traffic reaches it
 
-A Cloudflare Tunnel route from a public hostname to `http://127.0.0.1:3100`. Use `127.0.0.1`, not `localhost`, as zwipe's Cloudflare notes explain.
+A Cloudflare Tunnel from a public hostname to `http://127.0.0.1:3100`. Use `127.0.0.1`, not `localhost`, as zwipe's Cloudflare notes explain.
 
-The rate limiter keys on `CF-Connecting-IP`. That header is trusted because the origin is reachable only through the tunnel.
+The firewall denies all inbound traffic except SSH. The tunnel is an outbound connection from the box, so it needs no open port.
+
+**This is not only tidiness.** The rate limiter keys on `CF-Connecting-IP`, and that header is only trustworthy when every request comes through Cloudflare. If heron were ever bound to a public interface, a client could send any value it liked and have a rate-limit bucket to itself. Keep heron on loopback behind the tunnel, or change `CfConnectingIpKeyExtractor` first.
 
 Stats responses carry `Cache-Control: public, max-age=300`, so the edge holds each for five minutes.
 

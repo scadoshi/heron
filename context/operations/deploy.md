@@ -2,26 +2,53 @@
 
 **Not verified.** Nothing here has been run on a server. Treat each step as a draft and correct this file as you go.
 
+heron runs on its own Hetzner box. `../architecture/hosting.md` says what else is on it and how traffic arrives.
+
 ## Before the first deploy
 
-1. Decide the cache backend. `memory` needs nothing else. `steller` and `layered` need steller running on the box, which is blocked: see `../architecture/hosting.md`.
-2. Create a fine-grained GitHub token with read-only access to public repositories. Without one the limit is 60 requests an hour for the whole box.
-3. Pick the public hostname and add the Cloudflare Tunnel route to `http://127.0.0.1:3100`.
+1. Create the GitHub token. Without one the limit is 60 requests an hour. Under Settings, Developer settings, Personal access tokens, Fine-grained tokens:
+    - **Repository access:** "Public repositories". This is read-only by definition and cannot see a private repository at all.
+    - **Permissions:** none. Leave every repository and account permission unset.
+    - **Expiration:** set one, and put the date in your calendar. `runbook.md` has the rotation steps.
+2. Pick the public hostname.
+3. Create the box. Ubuntu Server on the smallest plan is enough: heron's unit caps it at 128M and steller's at 256M.
 
-## First-time setup on the server
+## Setting up the box
 
-```bash
-mkdir -p ~/heron
-cd ~/heron
-```
-
-Write `~/heron/.env` from `.env.example`. Set `BIND_ADDRESS=127.0.0.1:3100`, and put the token in `GITHUB_TOKEN`. Then:
+Lock it down before anything listens:
 
 ```bash
-chmod 600 ~/heron/.env
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow OpenSSH
+sudo ufw enable
 ```
 
-Copy the unit into place and check it before enabling it:
+Install `cloudflared`, create the tunnel, and route the hostname to `http://127.0.0.1:3100`. zwipe's `context/operations/infrastructure/cloudflare.md` has the steps.
+
+## Installing heron
+
+A user that owns nothing and can log in nowhere:
+
+```bash
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin heron
+```
+
+The environment file, readable by root and the service only:
+
+```bash
+sudo mkdir -p /etc/heron
+sudo cp .env.example /etc/heron/heron.env
+sudo chown root:heron /etc/heron/heron.env
+sudo chmod 640 /etc/heron/heron.env
+sudoedit /etc/heron/heron.env
+```
+
+Set `BIND_ADDRESS=127.0.0.1:3100`, `ALLOWED_ORIGINS`, `GITHUB_REPOS`, and `GITHUB_TOKEN`. Start with `CACHE_BACKEND=memory`.
+
+systemd reads this file itself and does not run it through a shell. Write `KEY=value` with no `export` and no quotes around values.
+
+The unit, checked before it is enabled:
 
 ```bash
 sudo cp deploy/heron.service /etc/systemd/system/
@@ -30,18 +57,14 @@ sudo systemctl daemon-reload
 sudo systemctl enable heron
 ```
 
-The unit hardcodes `User=scadoshi` and paths under `/home/scadoshi/heron`, following zerver's layout. Change both if the box differs.
-
-`ProtectHome=read-only` lets the service read its binary and `.env` under `/home` and write nothing there. If `systemd-analyze verify` or the first start objects, that line is the first suspect.
-
 ## Deploying
 
-Build on the server, or build elsewhere for `x86_64-unknown-linux-gnu` and copy the binary over.
+Build on the box, or build elsewhere for its architecture and copy the binary over. Hetzner's cheapest plans are ARM, so check `uname -m` before cross-compiling.
 
 ```bash
 cargo build --release --locked
 sudo systemctl stop heron
-cp target/release/heron ~/heron/
+sudo install -m 755 target/release/heron /usr/local/bin/heron
 sudo systemctl start heron
 ```
 
@@ -53,17 +76,28 @@ curl -fsS http://127.0.0.1:3100/health/cache
 curl -fsS http://127.0.0.1:3100/stats | head -c 300
 ```
 
+And from outside, through the tunnel:
+
+```bash
+curl -fsS https://<hostname>/health
+```
+
 ## From GitHub Actions
 
 `.github/workflows/deploy.yml` does the same on a self-hosted runner, gated on tests and lints. It runs on `workflow_dispatch` only. The comment at the top of the file says which lines to add to deploy on every push.
 
-The runner needs passwordless `sudo` for `systemctl stop` and `systemctl start` on this one unit.
+The runner needs passwordless `sudo` for `systemctl stop heron`, `systemctl start heron`, and the `install` into `/usr/local/bin`.
 
-## With steller
+A self-hosted runner compiles Rust on the box, which takes more memory than heron and steller together. If the box is small, build in a GitHub-hosted job and copy the binary over instead.
 
-Once steller can bind an address other than `127.0.0.1:3000`:
+## Adding steller
 
-1. Install steller's own unit from its repo, `deploy/steller.service`. It carries `MemoryMax=`, which matters here: steller has no memory bound and no eviction, and the box also runs Postgres.
-2. In `heron.service`, uncomment `Wants=steller.service` and `After=steller.service`.
-3. In `.env`, set `CACHE_BACKEND=layered` and `STELLER_ADDRESS` to steller's address.
-4. Restart, and check `/health/cache` reports `layered` and `healthy`.
+After heron is up on `memory`:
+
+1. Build steller and install it with its own unit, `deploy/steller.service` in steller's repo. It carries `MemoryMax=`, which matters: steller has no memory bound and no eviction.
+2. Check it answers: `redis-cli -p 3000 PING`.
+3. In `/etc/systemd/system/heron.service`, uncomment `Wants=steller.service` and `After=steller.service`, then `sudo systemctl daemon-reload`.
+4. In `/etc/heron/heron.env`, set `CACHE_BACKEND=layered` and `STELLER_ADDRESS=127.0.0.1:3000`.
+5. `sudo systemctl restart heron`, and check `/health/cache` reports `layered` and `healthy`.
+
+Use `layered`, not `steller`, until steller reads commands past 1024 bytes. See `../architecture/decisions.md`.

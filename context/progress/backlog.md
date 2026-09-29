@@ -18,6 +18,10 @@ GitHub answers `304 Not Modified` to a request carrying the `ETag` of the last r
 
 Uptime of the server and of steller, served by the server. This is the claim the project exists to be able to make, so it should be measured and not asserted.
 
+## Make steller's address configurable
+
+steller hardcodes `127.0.0.1:3000` and its cache paths. On heron's own box nothing else wants that port, so this blocks nothing. It would let the live tests run beside a steller already in use. The work is in steller.
+
 ## `TtlMap` in place of per-repository locks
 
 The refresh locks are a map built once from the allowlist. If the allowlist ever becomes dynamic, the map needs eviction and this design stops fitting.
