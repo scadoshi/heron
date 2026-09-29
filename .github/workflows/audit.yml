@@ -1,0 +1,29 @@
+name: Security audit
+
+# Scans Cargo.lock against the RustSec Advisory DB (https://rustsec.org). Runs weekly
+# to catch advisories published against dependencies already pinned, and on any
+# manifest or lockfile change to catch a vulnerable dependency as it arrives.
+# `cargo audit` exits non-zero on vulnerabilities only. Unmaintained and yanked
+# crates are reported and do not fail the run.
+
+on:
+  schedule:
+    - cron: "0 8 * * 1" # Mondays 08:00 UTC
+  push:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/audit.yml"
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Prebuilt binary, so nothing compiles from source.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: Audit dependencies
+        run: cargo audit

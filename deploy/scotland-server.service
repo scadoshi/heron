@@ -1,0 +1,59 @@
+# Not verified: this unit has never been loaded by systemd. Before enabling it, run
+#
+#   systemd-analyze verify /etc/systemd/system/scotland-server.service
+#
+# Paths follow zerver's layout on the same box. Setup is in
+# context/operations/deploy.md.
+
+[Unit]
+Description=scotland-server, GitHub stats for scottyfermo.com
+Documentation=https://github.com/scadoshi/scotland-server
+Wants=network-online.target
+After=network-online.target
+# With CACHE_BACKEND=steller or layered, uncomment both so steller starts first.
+# Wants, not Requires: under layered the server runs without it.
+# Wants=steller.service
+# After=steller.service
+
+[Service]
+Type=simple
+User=scadoshi
+WorkingDirectory=/home/scadoshi/scotland-server
+EnvironmentFile=/home/scadoshi/scotland-server/.env
+ExecStart=/home/scadoshi/scotland-server/scotland-server
+
+# The exit code is non-zero on any startup failure.
+Restart=on-failure
+RestartSec=5
+
+# SIGTERM stops accepting and drains requests in flight.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# The memory cache holds one snapshot per configured repository.
+MemoryMax=128M
+MemoryHigh=96M
+TasksMax=256
+
+# Logs go to stdout and nowhere else, so nothing on disk is writable.
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+# IPv4 and IPv6 for GitHub, UNIX for journald.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

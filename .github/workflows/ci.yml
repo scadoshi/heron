@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Test
+        run: cargo test --locked
+
+  # Format with nightly (rustfmt.toml uses an unstable option), lint with stable.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo +nightly fmt --check
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --release --locked
+
+  # The steller adapter against steller itself, built from its main branch. A change
+  # in steller that breaks the adapter shows up here.
+  live-steller:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install steller
+        run: cargo install --git https://github.com/scadoshi/steller --locked
+      - name: Start steller
+        # steller writes cache/aof and cache/snapshot relative to where it starts,
+        # and binds 127.0.0.1:3000.
+        run: |
+          mkdir -p "$RUNNER_TEMP/steller/cache"
+          cd "$RUNNER_TEMP/steller"
+          nohup steller < /dev/null > steller.log 2>&1 &
+      - name: Wait for steller to answer
+        # A successful connect only proves the port is bound.
+        run: |
+          for attempt in $(seq 1 50); do
+            if printf '*1\r\n$4\r\nPING\r\n' | nc -w 1 127.0.0.1 3000 | grep -q PONG; then
+              exit 0
+            fi
+            sleep 0.2
+          done
+          echo "steller never answered PING" >&2
+          cat "$RUNNER_TEMP/steller/steller.log" >&2
+          exit 1
+      - name: Live tests
+        env:
+          STELLER_ADDRESS: 127.0.0.1:3000
+        run: cargo test --locked --test live_steller -- --ignored
+      - name: steller log
+        if: always()
+        run: cat "$RUNNER_TEMP/steller/steller.log"
