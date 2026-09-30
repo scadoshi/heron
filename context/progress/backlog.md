@@ -12,7 +12,7 @@ A snapshot is refreshed by the first request after it goes stale, and that reque
 
 ## Conditional requests to GitHub
 
-GitHub answers `304 Not Modified` to a request carrying the `ETag` of the last response, and a 304 does not count against the rate limit. Not done because four requests per repository every six hours is nowhere near the limit with a token.
+GitHub answers `304 Not Modified` to a request carrying the `ETag` of the last response, and a 304 does not count against the rate limit. Not done because four requests per repository every fifteen minutes (the production `STATS_FRESH_SECS`; the default is six hours) is nowhere near the limit with a token.
 
 ## A status page
 
