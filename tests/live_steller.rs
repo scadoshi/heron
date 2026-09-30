@@ -4,7 +4,7 @@
 //! STELLER_ADDRESS=127.0.0.1:3000 cargo test --test live_steller -- --ignored
 //! ```
 //!
-//! The same tests pass against Redis, which is what Redis-compatible means.
+//! The same tests should pass against Redis, which is what Redis-compatible means.
 
 #![allow(
     clippy::unwrap_used,
@@ -129,29 +129,19 @@ async fn a_snapshot_sized_value_round_trips() {
     assert_eq!(cache.get(&key).await.unwrap(), Some(value));
 }
 
-/// Holds whether the server takes the large value or rejects it.
 #[tokio::test]
 #[ignore = "needs a running steller"]
-async fn the_command_after_a_large_value_is_answered_correctly() {
+async fn a_value_larger_than_one_read_round_trips() {
     let cache = steller();
-    let small = unique_key();
-    cache
-        .set(&small, b"small", Duration::from_secs(5))
-        .await
-        .unwrap();
-
-    let large = unique_key();
-    let stored = cache
-        .set(&large, &vec![0xAB; 256 * 1024], Duration::from_secs(5))
-        .await
-        .is_ok();
-
-    assert_eq!(
-        cache.get(&small).await.unwrap().as_deref(),
-        Some(&b"small"[..])
-    );
-    assert_eq!(cache.get(&large).await.unwrap().is_some(), stored);
-    cache.ping().await.unwrap();
+    let key = unique_key();
+    for size in [1000, 4096, 256 * 1024] {
+        let value = vec![0xAB; size];
+        cache
+            .set(&key, &value, Duration::from_secs(5))
+            .await
+            .unwrap_or_else(|error| panic!("{size} bytes: {error}"));
+        assert_eq!(cache.get(&key).await.unwrap(), Some(value), "{size} bytes");
+    }
 }
 
 #[tokio::test]

@@ -19,6 +19,14 @@ Plus [`CLAUDE.md`](CLAUDE.md), the rules for working in the repo.
 
 The running log, newest first. Update it when something ships. [`progress/todo.md`](progress/todo.md) holds what is still open.
 
+## 2026-09-30: deploys through a runner, and the steller bug is fixed
+
+A GitHub Actions runner on the box now deploys both services. A push to heron's `main` deploys heron after the tests and lints pass on GitHub's runners. steller is deployed from the Actions tab, which clones its `main`, runs its tests, builds, installs, restarts, and asks it for `PONG`, keeping the previous binary to put back if it does not answer. Every path ran for real: a heron push, a steller deploy, a steller deploy skipped because nothing had changed, and a steller deploy of a new commit.
+
+The runner's user can do eight things with `sudo` and nothing else. Every public repo of the owner's now requires approval before a fork's pull request runs any workflow, since a fork's workflow can name a self-hosted runner.
+
+steller's split-read bug is fixed at 8dfbcf1: `parse_bulk_string` answers `Incomplete` while a payload is still arriving. On the production box a `PING` sent in three pieces answers `+PONG` and a 256 KB `SET` answers `+OK`. The reproduction moved from its own file into `tests/live_steller.rs`.
+
 ## 2026-09-29: steller in production
 
 steller runs on the box under its own unit, capped at 256M, and heron runs on it with `CACHE_BACKEND=layered`. `deploy/steller.service` had never been loaded before either, and it passed `systemd-analyze verify` and started on the first try.

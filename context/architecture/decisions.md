@@ -58,7 +58,7 @@ or with `tests/live_steller_large.rs`. Reproduce the split case by writing a com
 
 **Exposure:** this client sends each command with one write, over loopback, so a command under 1024 bytes arrives whole in practice. The largest snapshot measured is 517 bytes and each language adds about 35, so a repository with around twenty languages would cross the line. Under `CACHE_BACKEND=steller` a rejected write means that repository never caches. Under `layered` the memory layer holds it and nothing is lost, which is why production runs `layered`.
 
-**Revisit when:** steller is fixed. Then `tests/live_steller_large.rs` passes and can join `tests/live_steller.rs`.
+**Fixed in steller at 8dfbcf1, 2026-09-30.** `parse_bulk_string` now answers `Incomplete` while a payload or its terminator is still arriving. Verified on the production box: a `PING` sent in three pieces and a 256 KB `SET` both answer. The reproduction now lives in `tests/live_steller.rs` as `a_value_larger_than_one_read_round_trips`. The client keeps closing its connection after an error reply, since the reasoning holds for any server.
 
 ---
 

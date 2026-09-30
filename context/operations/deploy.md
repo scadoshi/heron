@@ -140,7 +140,7 @@ After heron is up on `memory`:
     exec 3>&-
     ```
 
-    `+PONG` is the answer wanted. `-ERR mi` is steller rejecting a command that reached it in pieces; run it again. See `../architecture/decisions.md`.
+    `+PONG` is the answer wanted.
 
 Then point heron at it:
 
@@ -148,6 +148,6 @@ Then point heron at it:
 2. In `/etc/heron/heron.env`, set `CACHE_BACKEND=layered` and `STELLER_ADDRESS=127.0.0.1:3000`.
 3. `sudo systemctl restart heron`, and check `/health/cache` reports `layered` and `healthy`.
 
-Use `layered`, not `steller`, until steller reads a command that arrives in more than one piece. See `../architecture/decisions.md`.
+`layered` is what runs, so a steller restart costs nothing. `steller` alone would also work now.
 
 To see that it holds, read a repository's `fetched_at`, restart heron, and read it again. A restart empties the memory layer, so the same time means the snapshot came from steller. Then stop steller: `/stats` still answers 200 and `/health/cache` says `unreachable`.

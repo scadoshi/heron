@@ -15,7 +15,6 @@
 | Router | `tests/health.rs`, `tests/stats.rs` | `cargo test` |
 | Binary | `tests/binary.rs` | `cargo test` |
 | Live | `tests/live_steller.rs` | a running steller, and `-- --ignored` |
-| Reproduction | `tests/live_steller_large.rs` | a running steller, and `-- --ignored` |
 
 ## Names
 
@@ -49,8 +48,6 @@ STELLER_ADDRESS=127.0.0.1:3000 cargo test --test live_steller -- --ignored
 Stop steller with `kill -TERM`. It takes a final snapshot and exits.
 
 Every live test uses a repository name no other run has used, so runs do not read each other's keys.
-
-`tests/live_steller_large.rs` is kept apart and is not in CI. It fails against steller at 8628070 and says why at the top of the file. Run it after steller is fixed, and move its test into `live_steller.rs` when it passes.
 
 ## Tests that bind a fixed port
 
