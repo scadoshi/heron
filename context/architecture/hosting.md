@@ -15,6 +15,7 @@ Sharing zerver's box was the first plan and was dropped. See "Its own box" in `d
 | heron | `127.0.0.1:3100` | `deploy/heron.service`, in this repo |
 | steller | `127.0.0.1:3000`, hardcoded | `deploy/steller.service`, in steller's repo |
 | cloudflared | outbound only | installed with the package |
+| GitHub Actions runner | outbound only | `actions.runner.scadoshi-heron.heron.service`, as the `runner` user |
 
 Both servers bind loopback. Nothing listens on a public interface.
 

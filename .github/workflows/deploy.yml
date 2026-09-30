@@ -1,15 +1,28 @@
 name: Deploy
 
-# Not verified: this workflow has never run. It needs a self-hosted runner on the
-# server and the setup in context/operations/deploy.md.
+# Runs on the box itself, through a self-hosted runner registered to this repo. The
+# runner's user can start, stop and restart the two services, install their two
+# binaries from fixed paths, and read their logs. Nothing else. See
+# context/operations/deploy.md.
 #
-# Manual only. To deploy on every push to main, add under `on:`
-#
-#   push:
-#     branches: [main]
+# A push to main deploys heron. steller is deployed by hand from the Actions tab,
+# since it is written by hand and it is the cache under a live service.
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      target:
+        description: What to deploy
+        type: choice
+        options: [heron, steller, both]
+        default: heron
+
+# One deploy at a time, and a second push waits rather than cancelling one in flight.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -37,42 +50,106 @@ jobs:
       - name: Clippy
         run: cargo clippy --all-targets --locked -- -D warnings
 
-  deploy:
-    needs: [test, lint]
+  steller:
+    if: inputs.target == 'steller' || inputs.target == 'both'
     runs-on: self-hosted
+    timeout-minutes: 20
+    steps:
+      # This repo for its scripts, then steller beside it.
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: scadoshi/steller
+          path: steller
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Skip when the installed commit is already main
+        id: changed
+        run: |
+          head=$(git -C steller rev-parse HEAD)
+          installed=$(cat /home/runner/deploy/steller.commit 2>/dev/null || true)
+          echo "head=$head"
+          echo "installed=${installed:-none}"
+          if [ "$head" = "$installed" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test
+        if: steps.changed.outputs.changed == 'true'
+        # steller's suite binds 127.0.0.1:3000, which the live steller holds, so
+        # the test that starts the binary is left out. The unit tests run.
+        working-directory: steller
+        run: cargo test --locked --lib
+
+      - name: Build
+        if: steps.changed.outputs.changed == 'true'
+        working-directory: steller
+        run: cargo build --release --locked
+
+      - name: Install and restart
+        if: steps.changed.outputs.changed == 'true'
+        # The old binary is kept, and put back if the new one does not answer.
+        run: |
+          set -euo pipefail
+          cp steller/target/release/steller /home/runner/deploy/steller
+          cp /usr/local/bin/steller /home/runner/deploy/steller.previous
+          sudo systemctl stop steller
+          sudo install -m 755 /home/runner/deploy/steller /usr/local/bin/steller
+          sudo systemctl start steller
+          if bash .github/scripts/wait-for-steller.sh; then
+            git -C steller rev-parse HEAD > /home/runner/deploy/steller.commit
+            echo "steller is serving"
+          else
+            echo "::error::steller did not answer PING; putting the previous binary back"
+            sudo journalctl -u steller -n 50 --no-pager || true
+            sudo systemctl stop steller
+            cp /home/runner/deploy/steller.previous /home/runner/deploy/steller
+            sudo install -m 755 /home/runner/deploy/steller /usr/local/bin/steller
+            sudo systemctl start steller
+            exit 1
+          fi
+
+  heron:
+    # Runs after steller when both are asked for, and skips only when steller was
+    # the sole target or a gate failed.
+    needs: [test, lint, steller]
+    if: >-
+      always()
+      && needs.test.result == 'success'
+      && needs.lint.result == 'success'
+      && needs.steller.result != 'failure'
+      && (github.event_name == 'push' || inputs.target != 'steller')
+    runs-on: self-hosted
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+      - uses: dtolnay/rust-toolchain@stable
 
       - name: Build
         run: cargo build --release --locked
 
-      - name: Deploy
+      - name: Install and restart
+        # The old binary is kept, and put back if the new one does not answer.
         run: |
+          set -euo pipefail
+          cp target/release/heron /home/runner/deploy/heron
+          cp /usr/local/bin/heron /home/runner/deploy/heron.previous
           sudo systemctl stop heron
-          sudo install -m 755 target/release/heron /usr/local/bin/heron
+          sudo install -m 755 /home/runner/deploy/heron /usr/local/bin/heron
           sudo systemctl start heron
+          if bash .github/scripts/wait-for-heron.sh; then
+            echo "heron is serving"
+          else
+            echo "::error::heron did not answer /health; putting the previous binary back"
+            sudo journalctl -u heron -n 50 --no-pager || true
+            sudo systemctl stop heron
+            cp /home/runner/deploy/heron.previous /home/runner/deploy/heron
+            sudo install -m 755 /home/runner/deploy/heron /usr/local/bin/heron
+            sudo systemctl start heron
+            exit 1
+          fi
 
-      - name: Confirm it serves
-        # The unit starting is not the server serving. Ask it.
-        run: |
-          for attempt in $(seq 1 50); do
-            if curl -fsS http://127.0.0.1:3100/health > /dev/null; then
-              exit 0
-            fi
-            sleep 0.2
-          done
-          echo "heron never answered /health" >&2
-          sudo journalctl -u heron -n 50 --no-pager >&2
-          exit 1
+      - name: Check the cache behind it
+        run: curl -fsS http://127.0.0.1:3100/health/cache; echo

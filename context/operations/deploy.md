@@ -93,11 +93,13 @@ A machine that looked the hostname up before the route existed will have cached 
 
 ## From GitHub Actions
 
-`.github/workflows/deploy.yml` does the same on a self-hosted runner, gated on tests and lints. It runs on `workflow_dispatch` only. The comment at the top of the file says which lines to add to deploy on every push.
+`.github/workflows/deploy.yml` deploys through a self-hosted runner on the box, registered to this repo. A push to `main` deploys heron after the tests and lints pass on GitHub's runners. steller is deployed from the Actions tab, "Run workflow", choosing `steller` or `both`, since it is written by hand and it is the cache under a live service.
 
-The runner needs passwordless `sudo` for `systemctl stop heron`, `systemctl start heron`, and the `install` into `/usr/local/bin`.
+Each deploy keeps the old binary at `/home/runner/deploy/<name>.previous` and puts it back if the new one does not answer within ten seconds. steller is skipped when its `main` is already the installed commit, recorded in `/home/runner/deploy/steller.commit`.
 
-A self-hosted runner compiles Rust on the box, which takes more memory than heron and steller together. If the box is small, build in a GitHub-hosted job and copy the binary over instead.
+The runner is the `runner` user, installed the way GitHub's "New self-hosted runner" page shows and run as a service with `svc.sh`. It has its own Rust toolchain under `/home/runner/.cargo`. Its `sudo` is `/etc/sudoers.d/runner`: stop, start and restart of the two services, `install` of the two binaries from `/home/runner/deploy/<name>` and nowhere else, and the last 50 lines of each service's log. `sudo` refuses wildcards in arguments, which is why the paths are fixed.
+
+Both repos are public. A pull request from a fork runs the fork's copy of a workflow, so the repos are set to require approval for every external contributor before any workflow runs. That setting is what keeps a stranger's pull request off this box.
 
 ## Adding steller
 
