@@ -29,7 +29,7 @@ use tokio::net;
 use tower_http::{
     catch_panic::CatchPanicLayer,
     compression::CompressionLayer,
-    cors::CorsLayer,
+    cors::{AllowOrigin, CorsLayer},
     limit::RequestBodyLimitLayer,
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     timeout::TimeoutLayer,
@@ -199,7 +199,7 @@ pub fn build_router(
         .layer(axum::middleware::from_fn(security_headers))
         .layer(
             CorsLayer::new()
-                .allow_origin(allowed_origins)
+                .allow_origin(allow_origin(allowed_origins))
                 .allow_methods([Method::GET]),
         )
         .layer(CompressionLayer::new())
@@ -208,6 +208,19 @@ pub fn build_router(
         .layer(PropagateRequestIdLayer::new(x_request_id.clone()))
         .layer(SetRequestIdLayer::new(x_request_id, MakeRequestUuid))
         .with_state(state))
+}
+
+/// A single origin is sent on every response, whatever the request's `Origin`
+/// header says. A CDN caches by URL and ignores `Vary`, so a copy filled by a
+/// request without `Origin` (a curl, the deploy workflow) would otherwise carry
+/// no CORS header and every browser served it would fail. More than one origin
+/// has to be mirrored per request.
+fn allow_origin(mut origins: Vec<header::HeaderValue>) -> AllowOrigin {
+    if origins.len() == 1 {
+        AllowOrigin::exact(origins.remove(0))
+    } else {
+        AllowOrigin::list(origins)
+    }
 }
 
 impl HttpServer {

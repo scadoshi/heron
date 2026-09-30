@@ -178,8 +178,11 @@ async fn only_get_is_routed() {
     assert_eq!(app.source.calls(), 0);
 }
 
+/// The configured origin is the answer whatever the request says, including
+/// when it says nothing: a CDN copy filled by a request without `Origin` still
+/// has to work in a browser.
 #[tokio::test]
-async fn cors_allows_a_configured_origin_and_no_other() {
+async fn cors_names_the_configured_origin_on_every_response() {
     let app = TestApp::new(&["a/b"]);
     let allowed = app
         .get_with("/stats/a/b", &[("origin", ALLOWED_ORIGIN)])
@@ -188,10 +191,20 @@ async fn cors_allows_a_configured_origin_and_no_other() {
         allowed.header("access-control-allow-origin"),
         Some(ALLOWED_ORIGIN)
     );
-    let refused = app
+    let other = app
         .get_with("/stats/a/b", &[("origin", "https://evil.test")])
         .await;
-    assert_eq!(refused.header("access-control-allow-origin"), None);
+    assert_eq!(
+        other.header("access-control-allow-origin"),
+        Some(ALLOWED_ORIGIN),
+        "never the caller's origin"
+    );
+    let none = app.get("/stats/a/b").await;
+    assert_eq!(
+        none.header("access-control-allow-origin"),
+        Some(ALLOWED_ORIGIN),
+        "sent without an Origin header too"
+    );
 }
 
 #[tokio::test]

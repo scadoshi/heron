@@ -19,7 +19,10 @@ Plus [`CLAUDE.md`](CLAUDE.md), the rules for working in the repo.
 
 The running log, newest first. Update it when something ships. [`progress/todo.md`](progress/todo.md) holds what is still open.
 
-## 2026-09-30: the portfolio reads heron live
+## 2026-09-30: CORS on every response, because the edge ignores Vary
+
+The CORS header was only sent when a request carried `Origin`. Cloudflare caches `/stats` by URL and ignores `Vary`, so a copy filled by a request without `Origin` (a curl, the portfolio's deploy workflow) carried no header, and every browser served that copy failed CORS and fell back to the baked numbers until it expired. Seen as "live on desktop, as of on the phone". With a single allowed origin the header is now constant on every response; more than one still mirrors.
+
 
 scottyfermo.com asks `GET /stats` from the browser after each page loads and swaps the answer in, falling back to the numbers baked in at its build. Its hero says "live" or "as of <day>" depending on which it got. A Cloudflare cache rule holds `/stats*` for the five minutes `Cache-Control` asks for, so page loads do not reach the box.
 
