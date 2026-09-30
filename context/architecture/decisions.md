@@ -50,7 +50,7 @@ Reproduce the size case with `redis-cli`:
 head -c 1000 /dev/zero | tr '\0' 'x' | redis-cli -p 3000 -x SET k
 ```
 
-or with `tests/live_steller_large.rs`. Reproduce the split case by writing a command in two parts with a pause between them.
+or with `a_value_larger_than_one_read_round_trips` in `tests/live_steller.rs`. Reproduce the split case by writing a command in two parts with a pause between them.
 
 **Decided here:** the client closes its connection after any error reply. After a rejection the connection holds replies to commands that were never sent, and keeping it would hand one of them to the next command as its answer. Against Redis this costs a reconnect after an error that would have been harmless. That is cheap, and error replies are rare.
 

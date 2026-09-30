@@ -75,7 +75,7 @@ This is the first bug found by running steller as something other than a demo. A
 
 steller's session reads 1024 bytes at a time, and `Frame::parse_bulk_string` returns `MissingTerminator` when the payload has not all arrived. That is a hard error, where `Incomplete` would have made the session read more. The session then clears its buffer, and the rest of the payload arrives and is parsed as new commands, each answered with another error.
 
-It does not stop this server working. The largest snapshot measured was zwipe's at 517 bytes. But a repository with around twenty languages would cross the line, and under `CACHE_BACKEND=steller` its stats would never cache. The reproduction is `tests/live_steller_large.rs`. The fix belongs to steller and is on the list in `progress/todo.md`.
+It does not stop this server working. The largest snapshot measured was zwipe's at 517 bytes. But a repository with around twenty languages would cross the line, and under `CACHE_BACKEND=steller` its stats would never cache. The reproduction was `tests/live_steller_large.rs`, since folded into `tests/live_steller.rs`. Fixed the next day; see the entry above.
 
 ### What the bug changed here
 
