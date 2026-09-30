@@ -4,7 +4,7 @@ The split-read bug in steller is fixed at 8dfbcf1 and deployed. Nothing on the s
 
 ## Finish the deploy
 
-- [ ] Turn on "Always Use HTTPS" for `scadoshi.dev` in Cloudflare. Plain HTTP to `api.scadoshi.dev` answers 200 today.
+- [x] "Always Use HTTPS" is on for `scadoshi.dev` since 2026-09-30. Plain HTTP answers 301.
 - [x] The token expires 2026-12-28 and the reminder is set. When it lapses heron drops to 60 requests an hour and starts serving `stale: true`. Rotation is in `../operations/runbook.md`.
 - [x] The box's hostname is `heron`.
 
