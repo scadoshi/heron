@@ -6,7 +6,7 @@
 use crate::domain::{secret::Secret, stats::models::repo_name::RepoName};
 use anyhow::{Context, anyhow, bail};
 use axum::http::HeaderValue;
-use std::{net::SocketAddr, time::Duration};
+use std::{net::SocketAddr, path::PathBuf, time::Duration};
 
 /// Address to bind the HTTP server to.
 const BIND_ADDRESS_KEY: &str = "BIND_ADDRESS";
@@ -38,6 +38,17 @@ const STATS_FRESH_SECS_DEFAULT: u64 = 6 * 60 * 60;
 /// Seconds the cache keeps a snapshot.
 const STATS_RETAIN_SECS_KEY: &str = "STATS_RETAIN_SECS";
 const STATS_RETAIN_SECS_DEFAULT: u64 = 7 * 24 * 60 * 60;
+
+/// Seconds between sweeps that re-measure repositories pushed to since last time.
+const COUNTS_SWEEP_SECS_KEY: &str = "COUNTS_SWEEP_SECS";
+const COUNTS_SWEEP_SECS_DEFAULT: u64 = 5 * 60;
+
+/// Seconds the cache keeps a measurement.
+const COUNTS_RETAIN_SECS_KEY: &str = "COUNTS_RETAIN_SECS";
+const COUNTS_RETAIN_SECS_DEFAULT: u64 = 7 * 24 * 60 * 60;
+
+/// Directory tarballs are unpacked under while being measured.
+const MEASURE_DIR_KEY: &str = "MEASURE_DIR";
 
 /// Tracing filter directives.
 const RUST_LOG_KEY: &str = "RUST_LOG";
@@ -81,6 +92,15 @@ pub struct Config {
 
     /// How long the cache keeps a snapshot. Always longer than `stats_fresh`.
     pub stats_retain: Duration,
+
+    /// How often the sweep looks for repositories to measure again.
+    pub counts_sweep: Duration,
+
+    /// How long the cache keeps a measurement.
+    pub counts_retain: Duration,
+
+    /// Where tarballs are unpacked while being measured. Emptied as it goes.
+    pub measure_dir: PathBuf,
 
     /// Tracing filter. A bare level (`info`) or per-target directives
     /// (`info,heron=debug`).
@@ -164,6 +184,17 @@ impl Config {
             );
         }
 
+        let counts_sweep = seconds(&optional, COUNTS_SWEEP_SECS_KEY, COUNTS_SWEEP_SECS_DEFAULT)?;
+        let counts_retain = seconds(
+            &optional,
+            COUNTS_RETAIN_SECS_KEY,
+            COUNTS_RETAIN_SECS_DEFAULT,
+        )?;
+        let measure_dir = optional(MEASURE_DIR_KEY).map_or_else(
+            || std::env::temp_dir().join("heron-measure"),
+            |dir| PathBuf::from(dir.trim()),
+        );
+
         let rust_log = optional(RUST_LOG_KEY).unwrap_or_else(|| RUST_LOG_DEFAULT.to_string());
 
         Ok(Self {
@@ -175,6 +206,9 @@ impl Config {
             cache_backend,
             stats_fresh,
             stats_retain,
+            counts_sweep,
+            counts_retain,
+            measure_dir,
             rust_log,
         })
     }
@@ -359,5 +393,28 @@ mod tests {
     fn an_origin_that_is_not_a_header_value_is_refused() {
         let message = error(&[("ALLOWED_ORIGINS", "https://ok.test,bad\norigin")]);
         assert!(message.contains("ALLOWED_ORIGINS"), "{message}");
+    }
+
+    #[test]
+    fn counts_settings_default_and_parse() {
+        let config = load(&[]).unwrap();
+        assert_eq!(config.counts_sweep, Duration::from_mins(5));
+        assert_eq!(config.counts_retain, Duration::from_hours(168));
+        assert!(config.measure_dir.ends_with("heron-measure"));
+
+        let config = load(&[
+            ("COUNTS_SWEEP_SECS", "60"),
+            ("COUNTS_RETAIN_SECS", "3600"),
+            ("MEASURE_DIR", " /var/tmp/measure "),
+        ])
+        .unwrap();
+        assert_eq!(config.counts_sweep, Duration::from_mins(1));
+        assert_eq!(config.counts_retain, Duration::from_hours(1));
+        assert_eq!(config.measure_dir, PathBuf::from("/var/tmp/measure"));
+
+        let error = load(&[("COUNTS_SWEEP_SECS", "soon")])
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("COUNTS_SWEEP_SECS"), "{error}");
     }
 }

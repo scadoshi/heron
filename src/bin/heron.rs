@@ -3,6 +3,7 @@
 use heron::{
     config::{CacheBackend, Config},
     domain::{
+        counts::{self, ports::ErasedCountsService},
         health::{self, ports::ErasedHealthService},
         stats::{
             self,
@@ -15,9 +16,10 @@ use heron::{
         cache::{layered::LayeredCache, memory::MemoryCache, steller::StellerCache},
         clock::SystemClock,
         github::GitHub,
+        tarball::Tarball,
     },
 };
-use std::{process::ExitCode, sync::Arc};
+use std::{process::ExitCode, sync::Arc, time::Duration};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -59,25 +61,50 @@ async fn run() -> anyhow::Result<()> {
         },
     );
 
-    let github = GitHub::new(&config.github_api_base, config.github_token)?;
+    let github = GitHub::new(&config.github_api_base, config.github_token.clone())?;
+    let tarball = Tarball::new(
+        &config.github_api_base,
+        config.github_token,
+        config.measure_dir,
+    )?;
     let retain = config.stats_retain;
     let settings = Settings {
-        repos: config.github_repos,
+        repos: config.github_repos.clone(),
         fresh: config.stats_fresh,
         retain: config.stats_retain,
+    };
+    let counts_settings = counts::services::Settings {
+        repos: config.github_repos,
+        retain: config.counts_retain,
     };
 
     // Each arm builds services over a different cache type. Erasing them here is
     // what lets everything past this point hold one type.
-    let (stats_service, health_service) = match config.cache_backend {
-        CacheBackend::Memory => services(github, MemoryCache::new(), settings),
-        CacheBackend::Steller(address) => services(github, StellerCache::new(address)?, settings),
+    let (stats_service, health_service, counts_service) = match config.cache_backend {
+        CacheBackend::Memory => services(
+            github,
+            tarball,
+            MemoryCache::new(),
+            settings,
+            counts_settings,
+        ),
+        CacheBackend::Steller(address) => services(
+            github,
+            tarball,
+            StellerCache::new(address)?,
+            settings,
+            counts_settings,
+        ),
         CacheBackend::Layered(address) => services(
             github,
+            tarball,
             LayeredCache::new(StellerCache::new(address)?, MemoryCache::new(), retain),
             settings,
+            counts_settings,
         ),
     };
+
+    tokio::spawn(sweeper(Arc::clone(&counts_service), config.counts_sweep));
 
     let server = HttpServer::new(
         stats_service,
@@ -91,18 +118,52 @@ async fn run() -> anyhow::Result<()> {
     server.run().await
 }
 
+type Services = (
+    Arc<dyn ErasedStatsService>,
+    Arc<dyn ErasedHealthService>,
+    Arc<dyn ErasedCountsService>,
+);
+
 fn services<C: StatsCache>(
     github: GitHub,
+    tarball: Tarball,
     cache: C,
     settings: Settings,
-) -> (Arc<dyn ErasedStatsService>, Arc<dyn ErasedHealthService>) {
+    counts_settings: counts::services::Settings,
+) -> Services {
+    let stats = stats::services::Service::new(github, cache.clone(), SystemClock, settings);
+    let counts = counts::services::Service::new(
+        tarball,
+        cache.clone(),
+        stats.clone(),
+        SystemClock,
+        counts_settings,
+    );
     (
-        Arc::new(stats::services::Service::new(
-            github,
-            cache.clone(),
-            SystemClock,
-            settings,
-        )),
+        Arc::new(stats),
         Arc::new(health::services::Service::new(cache)),
+        Arc::new(counts),
     )
+}
+
+/// Sweeps once at startup, then every `interval`. A pass that measured nothing is
+/// logged at debug; one that did, at info.
+async fn sweeper(counts: Arc<dyn ErasedCountsService>, interval: Duration) {
+    loop {
+        let sweep = counts.sweep().await;
+        if sweep.measured.is_empty() && sweep.failed.is_empty() {
+            tracing::debug!(
+                "sweep: nothing to measure ({} up to date)",
+                sweep.skipped.len()
+            );
+        } else {
+            tracing::info!(
+                "sweep: measured {}, failed {}, up to date {}",
+                sweep.measured.len(),
+                sweep.failed.len(),
+                sweep.skipped.len()
+            );
+        }
+        tokio::time::sleep(interval).await;
+    }
 }
