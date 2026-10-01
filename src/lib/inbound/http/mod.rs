@@ -10,6 +10,7 @@ pub mod middleware;
 pub mod routes;
 
 use crate::domain::{
+    calendar::ports::ErasedCalendarService,
     counts::ports::ErasedCountsService,
     health::ports::ErasedHealthService,
     stats::{
@@ -154,6 +155,7 @@ pub struct AppState {
     pub stats_service: Arc<dyn ErasedStatsService>,
     pub health_service: Arc<dyn ErasedHealthService>,
     pub counts_service: Arc<dyn ErasedCountsService>,
+    pub calendar_service: Arc<dyn ErasedCalendarService>,
 }
 
 /// Axum HTTP server with its routes and middleware in place.
@@ -234,12 +236,14 @@ impl HttpServer {
         stats_service: Arc<dyn ErasedStatsService>,
         health_service: Arc<dyn ErasedHealthService>,
         counts_service: Arc<dyn ErasedCountsService>,
+        calendar_service: Arc<dyn ErasedCalendarService>,
         config: HttpServerConfig<'_>,
     ) -> anyhow::Result<Self> {
         let state = AppState {
             stats_service,
             health_service,
             counts_service,
+            calendar_service,
         };
         let router = build_router(state, config.allowed_origins)?;
         let listener = net::TcpListener::bind(&config.bind_address)

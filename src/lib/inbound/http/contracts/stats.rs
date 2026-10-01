@@ -1,5 +1,6 @@
 use super::rfc3339;
 use crate::domain::{
+    calendar::models::{CalendarReport, Day},
     counts::models::CountsReport,
     stats::models::{
         portfolio_stats::{PortfolioStats, Totals},
@@ -133,6 +134,56 @@ impl From<Totals> for HttpTotals {
     }
 }
 
+/// One day of the contribution calendar.
+#[derive(Debug, Serialize)]
+pub struct HttpDay {
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    /// Contributions that day.
+    pub count: u32,
+    /// 0 for none through 4 for the top quartile, GitHub's own shading.
+    pub level: u8,
+}
+
+impl From<Day> for HttpDay {
+    fn from(day: Day) -> Self {
+        Self {
+            date: day.date.to_string(),
+            count: day.count,
+            level: day.level,
+        }
+    }
+}
+
+/// A year of the account's contributions on GitHub, across every repository, as
+/// the profile page draws it.
+#[derive(Debug, Serialize)]
+pub struct HttpCalendar {
+    /// The account.
+    pub login: String,
+    /// Contributions over the whole year.
+    pub total: u32,
+    /// Every day, oldest first, without gaps.
+    pub days: Vec<HttpDay>,
+    /// When the calendar was read from GitHub.
+    #[serde(serialize_with = "rfc3339::serialize")]
+    pub fetched_at: DateTime<Utc>,
+    /// True when it is past its freshness window and GitHub could not be reached.
+    pub stale: bool,
+}
+
+impl From<CalendarReport> for HttpCalendar {
+    fn from(report: CalendarReport) -> Self {
+        Self {
+            login: report.calendar.login,
+            total: report.calendar.total,
+            days: report.calendar.days.into_iter().map(Into::into).collect(),
+            fetched_at: report.fetched_at,
+            stale: report.stale,
+        }
+    }
+}
+
 /// Body of `GET /stats`.
 #[derive(Debug, Serialize)]
 pub struct HttpPortfolioStats {
@@ -145,12 +196,21 @@ pub struct HttpPortfolioStats {
     pub unavailable: Vec<String>,
     /// In the order they are configured.
     pub repos: Vec<HttpRepoStats>,
+    /// The account's contribution calendar. `null` when it could not be read and
+    /// nothing is cached, or when there is no token.
+    pub calendar: Option<HttpCalendar>,
 }
 
 impl HttpPortfolioStats {
-    /// `portfolio` with `counts` laid beside each repository, in the same order.
-    pub fn new(portfolio: PortfolioStats, counts: Vec<Option<CountsReport>>) -> Self {
+    /// `portfolio` with `counts` laid beside each repository, in the same order,
+    /// and the calendar beside them all.
+    pub fn new(
+        portfolio: PortfolioStats,
+        counts: Vec<Option<CountsReport>>,
+        calendar: Option<CalendarReport>,
+    ) -> Self {
         Self {
+            calendar: calendar.map(Into::into),
             generated_at: portfolio.generated_at,
             totals: portfolio.totals.into(),
             unavailable: portfolio

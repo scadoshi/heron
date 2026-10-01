@@ -88,7 +88,27 @@ async fn portfolio_stats_has_the_documented_shape() {
         .collect();
     assert_eq!(names, ["a/one", "a/two"]);
     assert_eq!(body["repos"][1]["commits"], 32);
-    assert_eq!(body.as_object().unwrap().len(), 4);
+    assert_eq!(body.as_object().unwrap().len(), 5);
+}
+
+#[tokio::test]
+async fn the_portfolio_carries_the_contribution_calendar() {
+    let app = TestApp::new(&["a/one"]);
+    let body = app.get(STATS_ROUTE).await.json();
+    assert_eq!(
+        body["calendar"],
+        json!({
+            "login": "scadoshi",
+            "total": 61,
+            "days": [
+                { "date": "2026-09-28", "count": 0, "level": 0 },
+                { "date": "2026-09-29", "count": 13, "level": 2 },
+                { "date": "2026-09-30", "count": 48, "level": 4 },
+            ],
+            "fetched_at": "2026-09-29T16:04:41Z",
+            "stale": false,
+        })
+    );
 }
 
 #[tokio::test]

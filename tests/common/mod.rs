@@ -21,9 +21,14 @@ use axum::{
     extract::ConnectInfo,
     http::{HeaderMap, HeaderValue, Request, StatusCode},
 };
-use chrono::{DateTime, TimeDelta, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, TimeDelta, TimeZone, Utc};
 use heron::{
     domain::{
+        calendar::{
+            self,
+            models::{Calendar, CalendarError, Day},
+            ports::{CalendarSource, ErasedCalendarService},
+        },
         clock::Clock,
         counts::{
             self,
@@ -186,6 +191,30 @@ impl CountsSource for StubCounts {
     }
 }
 
+// == calendar source ==
+
+/// A calendar source answering three fixed days.
+#[derive(Clone, Default)]
+pub struct StubCalendar;
+
+impl CalendarSource for StubCalendar {
+    fn calendar(
+        &self,
+        login: &str,
+    ) -> impl Future<Output = Result<Calendar, CalendarError>> + Send {
+        let day = |d: u32, count, level| Day {
+            date: NaiveDate::from_ymd_opt(2026, 9, d).unwrap(),
+            count,
+            level,
+        };
+        ready(Ok(Calendar {
+            login: login.to_string(),
+            total: 61,
+            days: vec![day(28, 0, 0), day(29, 13, 2), day(30, 48, 4)],
+        }))
+    }
+}
+
 // == cache ==
 
 /// A cache whose backend never answers.
@@ -277,10 +306,22 @@ impl TestApp {
                     retain: Duration::from_secs(FRESH_SECS * 10),
                 },
             ));
+        let calendar_service: Arc<dyn ErasedCalendarService> =
+            Arc::new(calendar::services::Service::new(
+                StubCalendar,
+                cache.clone(),
+                clock.clone(),
+                calendar::services::Settings {
+                    login: "scadoshi".to_string(),
+                    fresh: Duration::from_secs(FRESH_SECS),
+                    retain: Duration::from_secs(FRESH_SECS * 10),
+                },
+            ));
         let state = AppState {
             stats_service: Arc::new(stats_service),
             health_service: Arc::new(health::services::Service::new(cache)),
             counts_service: Arc::clone(&counts_service),
+            calendar_service,
         };
         let router = build_router(state, vec![HeaderValue::from_static(ALLOWED_ORIGIN)]).unwrap();
         Self {

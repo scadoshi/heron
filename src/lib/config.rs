@@ -50,6 +50,14 @@ const COUNTS_RETAIN_SECS_DEFAULT: u64 = 7 * 24 * 60 * 60;
 /// Directory tarballs are unpacked under while being measured.
 const MEASURE_DIR_KEY: &str = "MEASURE_DIR";
 
+/// The GitHub account whose contribution calendar is served. Defaults to the
+/// owner of the first allowlisted repository.
+const GITHUB_LOGIN_KEY: &str = "GITHUB_LOGIN";
+
+/// Seconds a calendar is served before GitHub is asked again.
+const CALENDAR_FRESH_SECS_KEY: &str = "CALENDAR_FRESH_SECS";
+const CALENDAR_FRESH_SECS_DEFAULT: u64 = 60 * 60;
+
 /// Tracing filter directives.
 const RUST_LOG_KEY: &str = "RUST_LOG";
 const RUST_LOG_DEFAULT: &str = "info";
@@ -101,6 +109,13 @@ pub struct Config {
 
     /// Where tarballs are unpacked while being measured. Emptied as it goes.
     pub measure_dir: PathBuf,
+
+    /// The account whose contribution calendar is served.
+    pub github_login: String,
+
+    /// How long a calendar is served before GitHub is asked again. The cache keeps
+    /// it for `stats_retain`.
+    pub calendar_fresh: Duration,
 
     /// Tracing filter. A bare level (`info`) or per-target directives
     /// (`info,heron=debug`).
@@ -195,6 +210,21 @@ impl Config {
             |dir| PathBuf::from(dir.trim()),
         );
 
+        let github_login = optional(GITHUB_LOGIN_KEY).map_or_else(
+            || {
+                github_repos
+                    .first()
+                    .map(|repo| repo.owner().to_string())
+                    .unwrap_or_default()
+            },
+            |login| login.trim().to_string(),
+        );
+        let calendar_fresh = seconds(
+            &optional,
+            CALENDAR_FRESH_SECS_KEY,
+            CALENDAR_FRESH_SECS_DEFAULT,
+        )?;
+
         let rust_log = optional(RUST_LOG_KEY).unwrap_or_else(|| RUST_LOG_DEFAULT.to_string());
 
         Ok(Self {
@@ -209,6 +239,8 @@ impl Config {
             counts_sweep,
             counts_retain,
             measure_dir,
+            github_login,
+            calendar_fresh,
             rust_log,
         })
     }
@@ -416,5 +448,15 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(error.contains("COUNTS_SWEEP_SECS"), "{error}");
+    }
+
+    #[test]
+    fn the_calendar_login_defaults_to_the_first_repository_owner() {
+        let config = load(&[]).unwrap();
+        assert_eq!(config.github_login, "scadoshi");
+        assert_eq!(config.calendar_fresh, Duration::from_hours(1));
+        let config = load(&[("GITHUB_LOGIN", " someone "), ("CALENDAR_FRESH_SECS", "60")]).unwrap();
+        assert_eq!(config.github_login, "someone");
+        assert_eq!(config.calendar_fresh, Duration::from_mins(1));
     }
 }

@@ -3,6 +3,7 @@
 use heron::{
     config::{CacheBackend, Config},
     domain::{
+        calendar::{self, ports::ErasedCalendarService},
         counts::{self, ports::ErasedCountsService},
         health::{self, ports::ErasedHealthService},
         stats::{
@@ -77,32 +78,41 @@ async fn run() -> anyhow::Result<()> {
         repos: config.github_repos,
         retain: config.counts_retain,
     };
+    let calendar_settings = calendar::services::Settings {
+        login: config.github_login,
+        fresh: config.calendar_fresh,
+        retain: config.stats_retain,
+    };
 
     // Each arm builds services over a different cache type. Erasing them here is
     // what lets everything past this point hold one type.
-    let (stats_service, health_service, counts_service) = match config.cache_backend {
-        CacheBackend::Memory => services(
-            github,
-            tarball,
-            MemoryCache::new(),
-            settings,
-            counts_settings,
-        ),
-        CacheBackend::Steller(address) => services(
-            github,
-            tarball,
-            StellerCache::new(address)?,
-            settings,
-            counts_settings,
-        ),
-        CacheBackend::Layered(address) => services(
-            github,
-            tarball,
-            LayeredCache::new(StellerCache::new(address)?, MemoryCache::new(), retain),
-            settings,
-            counts_settings,
-        ),
-    };
+    let (stats_service, health_service, counts_service, calendar_service) =
+        match config.cache_backend {
+            CacheBackend::Memory => services(
+                github,
+                tarball,
+                MemoryCache::new(),
+                settings,
+                counts_settings,
+                calendar_settings,
+            ),
+            CacheBackend::Steller(address) => services(
+                github,
+                tarball,
+                StellerCache::new(address)?,
+                settings,
+                counts_settings,
+                calendar_settings,
+            ),
+            CacheBackend::Layered(address) => services(
+                github,
+                tarball,
+                LayeredCache::new(StellerCache::new(address)?, MemoryCache::new(), retain),
+                settings,
+                counts_settings,
+                calendar_settings,
+            ),
+        };
 
     tokio::spawn(sweeper(Arc::clone(&counts_service), config.counts_sweep));
 
@@ -110,6 +120,7 @@ async fn run() -> anyhow::Result<()> {
         stats_service,
         health_service,
         counts_service,
+        calendar_service,
         HttpServerConfig {
             bind_address: &config.bind_address,
             allowed_origins: config.allowed_origins,
@@ -123,6 +134,7 @@ type Services = (
     Arc<dyn ErasedStatsService>,
     Arc<dyn ErasedHealthService>,
     Arc<dyn ErasedCountsService>,
+    Arc<dyn ErasedCalendarService>,
 );
 
 fn services<C: StatsCache>(
@@ -131,7 +143,14 @@ fn services<C: StatsCache>(
     cache: C,
     settings: Settings,
     counts_settings: counts::services::Settings,
+    calendar_settings: calendar::services::Settings,
 ) -> Services {
+    let calendar = calendar::services::Service::new(
+        github.clone(),
+        cache.clone(),
+        SystemClock,
+        calendar_settings,
+    );
     let stats = stats::services::Service::new(github, cache.clone(), SystemClock, settings);
     let counts = counts::services::Service::new(
         tarball,
@@ -144,6 +163,7 @@ fn services<C: StatsCache>(
         Arc::new(stats),
         Arc::new(health::services::Service::new(cache)),
         Arc::new(counts),
+        Arc::new(calendar),
     )
 }
 
