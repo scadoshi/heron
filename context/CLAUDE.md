@@ -148,7 +148,7 @@ The gates to run before pushing are in `development/commit_guidelines.md`.
 
 ## Comments
 
-A comment says what the code does, in the present tense, and only when the code does not say it itself. No history, no "without this", no restating the name. The full rules with examples are in `development/comments.md`.
+A comment says what the code does, in the present tense, and only when the code does not say it itself. No history, no "without this", no restating the name. The full rules with examples are in `development/comment_guidelines.md`.
 
 ## Markdown Conventions
 
