@@ -14,7 +14,7 @@ The arrow is the direction of `use`. `domain` imports from neither side. `inboun
 
 | Layer | Holds | Knows about |
 |---|---|---|
-| `domain/` | `RepoName`, `Secret`, `CacheKey`, `RepoStats`, `Snapshot`, `CountsReport`, the ports, the three services | nothing outside itself, plus the `measure` crate's `Counts` type |
+| `domain/` | `RepoName`, `Secret`, `CacheKey`, `RepoStats`, `Snapshot`, `CountsReport`, `Calendar`, the ports, the four services | nothing outside itself, plus the `measure` crate's `Counts` type |
 | `inbound/http/` | `ApiError`, `AppState`, the router, handlers, `Http*` contracts | axum, and the domain's service ports |
 | `outbound/` | `GitHub`, `Tarball`, `MemoryCache`, `StellerCache`, `LayeredCache`, `SystemClock` | reqwest, TCP, the filesystem, the OS clock, and the domain's ports |
 | `measure/` | `measure()`, `Counts`, `Language`: a workspace crate that counts a checkout; a crate so the counting has no heron in it and tests on its own | the filesystem; nothing of heron |
@@ -30,9 +30,11 @@ The arrow is the direction of `use`. `domain` imports from neither side. `inboun
 | `StatsService` | `domain/stats/ports.rs` | `domain::stats::services::Service` |
 | `CountsSource` | `domain/counts/ports.rs` | `outbound::tarball::Tarball` |
 | `CountsService` | `domain/counts/ports.rs` | `domain::counts::services::Service` |
+| `CalendarSource` | `domain/calendar/ports.rs` | `outbound::github::GitHub`, through GraphQL |
+| `CalendarService` | `domain/calendar/ports.rs` | `domain::calendar::services::Service` |
 | `HealthService` | `domain/health/ports.rs` | `domain::health::services::Service` |
 
-`StatsService`, `CountsService` and `HealthService` each have an object-safe twin, `ErasedStatsService`, `ErasedCountsService` and `ErasedHealthService`, which is what `AppState` holds. The sweeper task in the binary holds the counts twin too. See "Type-erased services" in `decisions.md`.
+`StatsService`, `CountsService`, `CalendarService` and `HealthService` each have an object-safe twin, `ErasedStatsService`, `ErasedCountsService`, `ErasedCalendarService` and `ErasedHealthService`, which is what `AppState` holds. The sweeper task in the binary holds the counts twin too. See "Type-erased services" in `decisions.md`.
 
 ## One request, end to end
 

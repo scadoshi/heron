@@ -19,6 +19,10 @@ Plus [`CLAUDE.md`](CLAUDE.md), the rules for working in the repo.
 
 The running log, newest first. Update it when something ships. [`progress/todo.md`](progress/todo.md) holds what is still open.
 
+## 2026-10-01: the contribution calendar
+
+`/stats` carries `calendar`: the account's last year of contributions, 369 days with a count and GitHub's own 0 to 4 shade, from one GraphQL query (`contributionsCollection.contributionCalendar`) with the token heron already has. Its own domain beside stats and counts: fresh for `CALENDAR_FRESH_SECS` (an hour), kept seven days, served stale when GitHub fails, `null` without a token. `GITHUB_LOGIN` names the account and defaults to the first allowlisted repository's owner. The portfolio draws it as the heatmap under the hero. The first query from the box answered 5,099 contributions.
+
 ## 2026-10-01: lines, tests and lints are measured here now
 
 `/stats` carries `counts` per repository: lines of source, test attributes and clippy lints set to warn or deny, plus `measured_at`. They are not on GitHub's API, so heron measures them itself: a sweep downloads a tarball of the default branch (`GET /repos/{owner}/{name}/tarball`, one request, no git), unpacks it under `MEASURE_DIR`, counts it with the new `measure` workspace crate, and deletes it. The sweep runs at startup and every `COUNTS_SWEEP_SECS` (300), and measures a repository again only when its `pushed_at` from the stats cache is newer than the measurement, so a repository nobody touches is never downloaded twice. Measurements are kept `COUNTS_RETAIN_SECS` (seven days) under `heron:counts:v1:owner/name`, and a failed measurement leaves the old one standing. The first local sweep measured five repositories including zwipe in a few seconds without a token.

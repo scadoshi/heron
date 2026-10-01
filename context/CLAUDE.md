@@ -56,6 +56,7 @@ src/
     │   ├── clock/           the time port
     │   ├── health/          models, ports, services
     │   ├── secret/          Secret
+    │   ├── calendar/        models, ports (CalendarSource, CalendarService), services
     │   ├── counts/          models, ports (CountsSource, CountsService), services (the sweep)
     │   └── stats/
     │       ├── models/      repo_name, cache_key, repo_stats, snapshot, portfolio_stats, errors
@@ -69,7 +70,7 @@ src/
     │   └── handlers/        one handler per file
     └── outbound/
         ├── clock/           SystemClock
-        ├── github/          the StatsSource adapter, and Link header parsing
+        ├── github/          the StatsSource and CalendarSource adapter, and Link header parsing
         ├── tarball/         the CountsSource adapter: tarball in, Counts out, nothing kept
         └── cache/           memory, layered, steller/
 measure/                     workspace crate: counts a checkout, nothing of heron in it
