@@ -109,6 +109,7 @@ async fn run() -> anyhow::Result<()> {
     let server = HttpServer::new(
         stats_service,
         health_service,
+        counts_service,
         HttpServerConfig {
             bind_address: &config.bind_address,
             allowed_origins: config.allowed_origins,

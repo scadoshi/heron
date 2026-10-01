@@ -25,6 +25,11 @@ use chrono::{DateTime, TimeDelta, TimeZone, Utc};
 use heron::{
     domain::{
         clock::Clock,
+        counts::{
+            self,
+            models::{Counts, CountsError, Language as CountsLanguage},
+            ports::{CountsSource, ErasedCountsService},
+        },
         health,
         stats::{
             self,
@@ -158,6 +163,29 @@ impl StubSource {
     }
 }
 
+// == counts source ==
+
+/// A counts source answering a fixed measurement for every repository.
+#[derive(Clone, Default)]
+pub struct StubCounts;
+
+impl StubCounts {
+    pub fn counts() -> Counts {
+        Counts {
+            language: CountsLanguage::Rust,
+            lines: 6102,
+            tests: 242,
+            clippy_lints: Some(14),
+        }
+    }
+}
+
+impl CountsSource for StubCounts {
+    fn counts(&self, _: &RepoName) -> impl Future<Output = Result<Counts, CountsError>> + Send {
+        ready(Ok(Self::counts()))
+    }
+}
+
 // == cache ==
 
 /// A cache whose backend never answers.
@@ -214,6 +242,8 @@ pub struct TestApp {
     router: Router,
     pub source: StubSource,
     pub clock: TestClock,
+    /// The counts service, so a test can run a sweep by hand.
+    pub counts: Arc<dyn ErasedCountsService>,
 }
 
 impl TestApp {
@@ -236,15 +266,28 @@ impl TestApp {
                 retain: Duration::from_secs(FRESH_SECS * 10),
             },
         );
+        let counts_service: Arc<dyn ErasedCountsService> =
+            Arc::new(counts::services::Service::new(
+                StubCounts,
+                cache.clone(),
+                stats_service.clone(),
+                clock.clone(),
+                counts::services::Settings {
+                    repos: repos.iter().map(|raw| repo(raw)).collect(),
+                    retain: Duration::from_secs(FRESH_SECS * 10),
+                },
+            ));
         let state = AppState {
             stats_service: Arc::new(stats_service),
             health_service: Arc::new(health::services::Service::new(cache)),
+            counts_service: Arc::clone(&counts_service),
         };
         let router = build_router(state, vec![HeaderValue::from_static(ALLOWED_ORIGIN)]).unwrap();
         Self {
             router,
             source,
             clock,
+            counts: counts_service,
         }
     }
 

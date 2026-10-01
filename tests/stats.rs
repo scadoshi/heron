@@ -32,8 +32,38 @@ async fn repo_stats_has_the_documented_shape() {
             "deletions": null,
             "fetched_at": "2026-09-29T16:04:41Z",
             "stale": false,
+            "counts": null,
         })
     );
+}
+
+#[tokio::test]
+async fn counts_appear_once_a_sweep_has_measured_the_repository() {
+    let app = TestApp::new(&["scadoshi/steller"]);
+    let sweep = app.counts.sweep().await;
+    assert_eq!(sweep.measured.len(), 1);
+    app.clock.advance(60);
+    let reply = app.get("/stats/scadoshi/steller").await;
+    assert_eq!(reply.status, StatusCode::OK);
+    assert_eq!(
+        reply.json()["counts"],
+        json!({
+            "language": "Rust",
+            "lines": 6102,
+            "tests": 242,
+            "clippy_lints": 14,
+            "measured_at": "2026-09-29T16:04:41Z",
+        })
+    );
+}
+
+#[tokio::test]
+async fn portfolio_entries_carry_their_own_counts() {
+    let app = TestApp::new(&["a/one", "a/two"]);
+    app.counts.sweep().await;
+    let body = app.get(STATS_ROUTE).await.json();
+    assert_eq!(body["repos"][0]["counts"]["lines"], 6102);
+    assert_eq!(body["repos"][1]["counts"]["tests"], 242);
 }
 
 #[tokio::test]

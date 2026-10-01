@@ -1,7 +1,10 @@
 use super::rfc3339;
-use crate::domain::stats::models::{
-    portfolio_stats::{PortfolioStats, Totals},
-    repo_stats::{Language, RepoReport},
+use crate::domain::{
+    counts::models::CountsReport,
+    stats::models::{
+        portfolio_stats::{PortfolioStats, Totals},
+        repo_stats::{Language, RepoReport},
+    },
 };
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -19,6 +22,35 @@ impl From<Language> for HttpLanguage {
         Self {
             name: language.name,
             bytes: language.bytes,
+        }
+    }
+}
+
+/// What the repository's source contains, counted by heron from a tarball of
+/// the default branch.
+#[derive(Debug, Serialize)]
+pub struct HttpCounts {
+    /// `Rust` or `C#`.
+    pub language: String,
+    /// Lines in every source file, blanks and comments included.
+    pub lines: u64,
+    /// Test attributes, one per test function.
+    pub tests: u64,
+    /// Clippy lints set to warn or deny. `null` for C#.
+    pub clippy_lints: Option<u64>,
+    /// When the source was measured.
+    #[serde(serialize_with = "rfc3339::serialize")]
+    pub measured_at: DateTime<Utc>,
+}
+
+impl From<CountsReport> for HttpCounts {
+    fn from(report: CountsReport) -> Self {
+        Self {
+            language: report.counts.language.name().to_string(),
+            lines: report.counts.lines,
+            tests: report.counts.tests,
+            clippy_lints: report.counts.clippy_lints,
+            measured_at: report.measured_at,
         }
     }
 }
@@ -50,11 +82,24 @@ pub struct HttpRepoStats {
     /// True when the numbers are past their freshness window and GitHub could not
     /// be reached for new ones.
     pub stale: bool,
+    /// Source counts. `null` until the first sweep has measured the repository.
+    pub counts: Option<HttpCounts>,
+}
+
+impl HttpRepoStats {
+    /// The GitHub numbers with the latest measurement beside them.
+    pub fn new(report: RepoReport, counts: Option<CountsReport>) -> Self {
+        Self {
+            counts: counts.map(Into::into),
+            ..report.into()
+        }
+    }
 }
 
 impl From<RepoReport> for HttpRepoStats {
     fn from(report: RepoReport) -> Self {
         Self {
+            counts: None,
             repo: report.stats.repo.to_string(),
             commits: report.stats.commits,
             stars: report.stats.stars,
@@ -102,8 +147,9 @@ pub struct HttpPortfolioStats {
     pub repos: Vec<HttpRepoStats>,
 }
 
-impl From<PortfolioStats> for HttpPortfolioStats {
-    fn from(portfolio: PortfolioStats) -> Self {
+impl HttpPortfolioStats {
+    /// `portfolio` with `counts` laid beside each repository, in the same order.
+    pub fn new(portfolio: PortfolioStats, counts: Vec<Option<CountsReport>>) -> Self {
         Self {
             generated_at: portfolio.generated_at,
             totals: portfolio.totals.into(),
@@ -112,7 +158,12 @@ impl From<PortfolioStats> for HttpPortfolioStats {
                 .iter()
                 .map(ToString::to_string)
                 .collect(),
-            repos: portfolio.repos.into_iter().map(Into::into).collect(),
+            repos: portfolio
+                .repos
+                .into_iter()
+                .zip(counts.into_iter().chain(std::iter::repeat(None)))
+                .map(|(report, counts)| HttpRepoStats::new(report, counts))
+                .collect(),
         }
     }
 }
