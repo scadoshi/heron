@@ -33,6 +33,10 @@ async fn repo_stats_has_the_documented_shape() {
             "fetched_at": "2026-09-29T16:04:41Z",
             "stale": false,
             "counts": null,
+            "weekly_commits": [
+                { "week": "2026-09-20", "commits": 5 },
+                { "week": "2026-09-27", "commits": 3 },
+            ],
         })
     );
 }
@@ -77,7 +81,15 @@ async fn portfolio_stats_has_the_documented_shape() {
     assert_eq!(body["generated_at"], "2026-09-29T16:04:41Z");
     assert_eq!(
         body["totals"],
-        json!({ "repos": 2, "commits": 42, "stars": 4 })
+        json!({
+            "repos": 2,
+            "commits": 42,
+            "stars": 4,
+            "weekly_commits": [
+                { "week": "2026-09-20", "commits": 10 },
+                { "week": "2026-09-27", "commits": 6 },
+            ],
+        })
     );
     assert_eq!(body["unavailable"], json!(["a/three"]));
     let names: Vec<&str> = body["repos"]

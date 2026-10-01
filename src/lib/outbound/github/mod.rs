@@ -1,7 +1,8 @@
 //! GitHub's REST API as a stats source, and its GraphQL API as the calendar source.
 //!
-//! Four requests per repository: the repository itself, its commits, its languages,
-//! and its contributor statistics. One GraphQL query for the contribution calendar.
+//! Five requests per repository: the repository itself, its commits, its languages,
+//! its contributor statistics and its weekly commit activity. One GraphQL query
+//! for the contribution calendar.
 //! Only the fields read are deserialized.
 
 /// Parsing of the `Link` response header.
@@ -17,7 +18,7 @@ use crate::domain::{
         models::{
             errors::StatsError,
             repo_name::RepoName,
-            repo_stats::{Language, RepoStats},
+            repo_stats::{Language, RepoStats, WeekCommits},
         },
         ports::StatsSource,
     },
@@ -196,6 +197,40 @@ impl GitHub {
         Ok(Some(totals))
     }
 
+    /// Commits per week over the last year, oldest first, or `None` while GitHub
+    /// is still computing them. Same 202 dance as `churn`.
+    async fn activity(&self, repo: &RepoName) -> Result<Option<Vec<WeekCommits>>, GitHubError> {
+        let response = self.get(repo, "/stats/commit_activity").send().await?;
+        if matches!(
+            response.status(),
+            StatusCode::ACCEPTED | StatusCode::NO_CONTENT
+        ) {
+            return Ok(None);
+        }
+        let response = match accepted(response) {
+            Ok(response) => response,
+            Err(limited @ GitHubError::RateLimited { .. }) => return Err(limited),
+            Err(error) => {
+                tracing::warn!("commit activity unavailable for {repo}: {error}");
+                return Ok(None);
+            }
+        };
+        let Ok(weeks) = response.json::<Vec<RawWeekActivity>>().await else {
+            return Ok(None);
+        };
+        let mut weeks: Vec<WeekCommits> = weeks
+            .into_iter()
+            .filter_map(|week| {
+                Some(WeekCommits {
+                    week: DateTime::from_timestamp(week.week, 0)?,
+                    commits: week.total,
+                })
+            })
+            .collect();
+        weeks.sort_by_key(|week| week.week);
+        Ok(Some(weeks))
+    }
+
     async fn read(&self, repo: &RepoName) -> Result<RepoStats, GitHubError> {
         let repository = self.repository(repo).await?;
         // Checked before anything else is requested, so nothing about a private
@@ -203,10 +238,11 @@ impl GitHub {
         if repository.private {
             return Err(GitHubError::Private);
         }
-        let (commits, languages, churn) = tokio::join!(
+        let (commits, languages, churn, activity) = tokio::join!(
             self.commits(repo, &repository.default_branch),
             self.languages(repo),
             self.churn(repo),
+            self.activity(repo),
         );
         let churn = churn?;
         Ok(RepoStats {
@@ -218,6 +254,7 @@ impl GitHub {
             languages: languages?,
             additions: churn.map(|(added, _)| added),
             deletions: churn.map(|(_, deleted)| deleted),
+            weekly_commits: activity?,
         })
     }
 }
@@ -397,4 +434,12 @@ struct RawDay {
     date: chrono::NaiveDate,
     contribution_count: u32,
     contribution_level: String,
+}
+
+/// One week of `/stats/commit_activity`: the week's start as a unix timestamp
+/// and its commit total. The per-day breakdown is not read.
+#[derive(Debug, Deserialize)]
+struct RawWeekActivity {
+    week: i64,
+    total: u32,
 }

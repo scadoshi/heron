@@ -52,6 +52,7 @@ pub fn stats_for(repo: &RepoName, commits: u64) -> RepoStats {
         }],
         additions: Some(500),
         deletions: Some(100),
+        weekly_commits: None,
     }
 }
 

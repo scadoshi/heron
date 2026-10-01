@@ -22,6 +22,8 @@ struct Fake {
     commits: (u16, Option<&'static str>),
     commits_body: &'static str,
     contributors: (u16, &'static str),
+    /// Status and body for the commit activity request.
+    activity: (u16, &'static str),
     /// Status and body for the GraphQL calendar query.
     graphql: (u16, &'static str),
     /// Answered by every route when set, as status and headers.
@@ -49,6 +51,10 @@ impl Default for Fake {
                 200,
                 r#"[{"total":2,"weeks":[{"w":1,"a":100,"d":10,"c":1},{"w":2,"a":5,"d":1,"c":1}]},
                     {"total":1,"weeks":[{"w":1,"a":7,"d":2,"c":1}]}]"#,
+            ),
+            activity: (
+                200,
+                r#"[{"week":1758412800,"total":3,"days":[0,1,0,2,0,0,0]},{"week":1757808000,"total":5,"days":[1,1,1,1,1,0,0]}]"#,
             ),
             graphql: (
                 200,
@@ -105,6 +111,7 @@ impl Fake {
                 "/repos/{owner}/{name}/stats/contributors",
                 get(contributors),
             )
+            .route("/repos/{owner}/{name}/stats/commit_activity", get(activity))
             .route("/graphql", post(graphql))
             .with_state(self.clone());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -190,7 +197,7 @@ async fn reads_every_field() {
     );
     assert_eq!(stats.additions, Some(112));
     assert_eq!(stats.deletions, Some(13));
-    assert_eq!(fake.requests(), 4);
+    assert_eq!(fake.requests(), 5);
 }
 
 #[tokio::test]
@@ -491,6 +498,45 @@ async fn graphql(State(fake): State<Fake>, request: Request) -> AxumResponse {
         body,
     )
         .into_response()
+}
+
+async fn activity(State(fake): State<Fake>, request: Request) -> AxumResponse {
+    fake.record(&request);
+    if let Some(refusal) = fake.refuse() {
+        return refusal;
+    }
+    let (status, body) = fake.activity;
+    (
+        AxumStatus::from_u16(status).unwrap(),
+        [(header::CONTENT_TYPE, "application/json")],
+        body,
+    )
+        .into_response()
+}
+
+// == commit activity ==
+
+#[tokio::test]
+async fn weekly_commits_come_back_oldest_first() {
+    let fake = Fake::default();
+    let github = fake.serve(None).await;
+    let stats = github.repo_stats(&repo("a/b")).await.unwrap();
+    let weeks = stats.weekly_commits.unwrap();
+    assert_eq!(weeks.len(), 2);
+    assert!(weeks[0].week < weeks[1].week);
+    assert_eq!((weeks[0].commits, weeks[1].commits), (5, 3));
+    assert!(fake.saw("/stats/commit_activity"));
+}
+
+#[tokio::test]
+async fn weekly_commits_are_none_while_github_is_still_computing_them() {
+    let fake = Fake {
+        activity: (202, ""),
+        ..Fake::default()
+    };
+    let github = fake.serve(None).await;
+    let stats = github.repo_stats(&repo("a/b")).await.unwrap();
+    assert_eq!(stats.weekly_commits, None);
 }
 
 // == calendar ==

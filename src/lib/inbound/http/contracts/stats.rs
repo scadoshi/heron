@@ -4,7 +4,7 @@ use crate::domain::{
     counts::models::CountsReport,
     stats::models::{
         portfolio_stats::{PortfolioStats, Totals},
-        repo_stats::{Language, RepoReport},
+        repo_stats::{Language, RepoReport, WeekCommits},
     },
 };
 use chrono::{DateTime, Utc};
@@ -56,6 +56,24 @@ impl From<CountsReport> for HttpCounts {
     }
 }
 
+/// Commits in one week.
+#[derive(Debug, Serialize)]
+pub struct HttpWeekCommits {
+    /// The Sunday the week starts on, as `YYYY-MM-DD`.
+    pub week: String,
+    /// Commits that week.
+    pub commits: u32,
+}
+
+impl From<WeekCommits> for HttpWeekCommits {
+    fn from(week: WeekCommits) -> Self {
+        Self {
+            week: week.week.format("%Y-%m-%d").to_string(),
+            commits: week.commits,
+        }
+    }
+}
+
 /// Body of `GET /stats/{owner}/{name}`, and one entry of `GET /stats`.
 #[derive(Debug, Serialize)]
 pub struct HttpRepoStats {
@@ -85,6 +103,9 @@ pub struct HttpRepoStats {
     pub stale: bool,
     /// Source counts. `null` until the first sweep has measured the repository.
     pub counts: Option<HttpCounts>,
+    /// The last 52 weeks of commits, oldest first. `null` while GitHub is still
+    /// computing them.
+    pub weekly_commits: Option<Vec<HttpWeekCommits>>,
 }
 
 impl HttpRepoStats {
@@ -111,17 +132,26 @@ impl From<RepoReport> for HttpRepoStats {
             deletions: report.stats.deletions,
             fetched_at: report.fetched_at,
             stale: report.stale,
+            weekly_commits: report
+                .stats
+                .weekly_commits
+                .map(|weeks| weeks.into_iter().map(Into::into).collect()),
         }
     }
 }
 
 /// Sums over the repositories in the answer.
 #[derive(Debug, Serialize)]
-#[allow(missing_docs)]
 pub struct HttpTotals {
+    /// Repositories that resolved.
     pub repos: u32,
+    /// Commits across them.
     pub commits: u64,
+    /// Stars across them.
     pub stars: u64,
+    /// Commits per week across them, oldest first; a repository still computing
+    /// its weeks adds nothing. Empty when none has them.
+    pub weekly_commits: Vec<HttpWeekCommits>,
 }
 
 impl From<Totals> for HttpTotals {
@@ -130,6 +160,7 @@ impl From<Totals> for HttpTotals {
             repos: totals.repos,
             commits: totals.commits,
             stars: totals.stars,
+            weekly_commits: totals.weekly_commits.into_iter().map(Into::into).collect(),
         }
     }
 }

@@ -42,7 +42,7 @@ use heron::{
                 cache_key::CacheKey,
                 errors::{CacheError, StatsError},
                 repo_name::RepoName,
-                repo_stats::{Language, RepoStats},
+                repo_stats::{Language, RepoStats, WeekCommits},
             },
             ports::{StatsCache, StatsSource},
             services::Settings,
@@ -159,6 +159,16 @@ impl StubSource {
                 ],
                 additions: Some(14115),
                 deletions: None,
+                weekly_commits: Some(vec![
+                    WeekCommits {
+                        week: Utc.with_ymd_and_hms(2026, 9, 20, 0, 0, 0).unwrap(),
+                        commits: 5,
+                    },
+                    WeekCommits {
+                        week: Utc.with_ymd_and_hms(2026, 9, 27, 0, 0, 0).unwrap(),
+                        commits: 3,
+                    },
+                ]),
             }),
             Outcome::Private => Err(StatsError::PrivateRepo(repo.clone())),
             Outcome::Missing => Err(StatsError::UnknownRepo(repo.clone())),

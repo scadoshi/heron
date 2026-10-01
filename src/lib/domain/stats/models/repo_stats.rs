@@ -10,6 +10,15 @@ pub struct Language {
     pub bytes: u64,
 }
 
+/// Commits in one week of the last year.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WeekCommits {
+    /// The Sunday the week starts on, UTC midnight.
+    pub week: DateTime<Utc>,
+    /// Commits that week on the default branch.
+    pub commits: u32,
+}
+
 /// What GitHub reports for one repository.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RepoStats {
@@ -30,6 +39,10 @@ pub struct RepoStats {
     pub additions: Option<u64>,
     /// Lines deleted across all commits. `None` on the same condition as `additions`.
     pub deletions: Option<u64>,
+    /// The last 52 weeks of commits, oldest first. `None` while GitHub is still
+    /// computing them, and in a payload cached before they were read.
+    #[serde(default)]
+    pub weekly_commits: Option<Vec<WeekCommits>>,
 }
 
 /// One repository's stats as the service hands them out.
