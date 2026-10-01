@@ -8,3 +8,6 @@ pub mod clock;
 
 /// GitHub's REST API behind the `StatsSource` port.
 pub mod github;
+
+/// GitHub's tarball download behind the `CountsSource` port.
+pub mod tarball;
