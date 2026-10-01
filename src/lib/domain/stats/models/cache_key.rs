@@ -18,6 +18,11 @@ impl CacheKey {
         Self(format!("heron:stats:v{SCHEMA_VERSION}:{repo}"))
     }
 
+    /// The key for `repo`'s source counts: `heron:counts:v1:owner/name`.
+    pub fn for_counts(repo: &RepoName) -> Self {
+        Self(format!("heron:counts:v{SCHEMA_VERSION}:{repo}"))
+    }
+
     /// The key as bytes, the form a cache adapter sends.
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_bytes()
@@ -47,6 +52,10 @@ mod tests {
         assert_eq!(
             &*CacheKey::for_repo(&repo),
             "heron:stats:v1:scadoshi/steller"
+        );
+        assert_eq!(
+            &*CacheKey::for_counts(&repo),
+            "heron:counts:v1:scadoshi/steller"
         );
     }
 }

@@ -7,6 +7,10 @@
 
 use crate::domain::{
     clock::Clock,
+    counts::{
+        models::{Counts, CountsError, Language as CountsLanguage},
+        ports::CountsSource,
+    },
     stats::{
         models::{
             cache_key::CacheKey,
@@ -99,6 +103,7 @@ impl Failure {
 struct SourceState {
     calls: u32,
     commits: u64,
+    pushed_at: Option<DateTime<Utc>>,
     failure: Option<Failure>,
     failing_repos: HashMap<RepoName, Failure>,
     delay: Option<Duration>,
@@ -113,6 +118,7 @@ impl Default for FakeSource {
         Self(Arc::new(Mutex::new(SourceState {
             calls: 0,
             commits: 10,
+            pushed_at: Some(Utc.with_ymd_and_hms(2026, 9, 1, 12, 0, 0).unwrap()),
             failure: None,
             failing_repos: HashMap::new(),
             delay: None,
@@ -127,6 +133,10 @@ impl FakeSource {
 
     pub fn set_commits(&self, commits: u64) {
         self.0.lock().unwrap().commits = commits;
+    }
+
+    pub fn set_pushed_at(&self, pushed_at: Option<DateTime<Utc>>) {
+        self.0.lock().unwrap().pushed_at = pushed_at;
     }
 
     /// Every call fails from here on.
@@ -155,9 +165,12 @@ impl StatsSource for FakeSource {
             let mut state = self.0.lock().unwrap();
             state.calls += 1;
             let failure = state.failing_repos.get(repo).copied().or(state.failure);
-            let outcome = match failure {
-                Some(failure) => Err(failure.into_error(repo)),
-                None => Ok(stats_for(repo, state.commits)),
+            let outcome = if let Some(failure) = failure {
+                Err(failure.into_error(repo))
+            } else {
+                let mut answer = stats_for(repo, state.commits);
+                answer.pushed_at = state.pushed_at;
+                Ok(answer)
             };
             (state.delay, outcome)
         };
@@ -251,6 +264,64 @@ impl StatsCache for FakeCache {
             Err(CacheError(anyhow::anyhow!("no answer")))
         } else {
             Ok(())
+        })
+    }
+}
+
+// == counts source ==
+
+struct CountsState {
+    calls: u32,
+    lines: u64,
+    fail: bool,
+}
+
+/// A counts source that answers a fixed measurement and fails on request.
+#[derive(Clone)]
+pub struct FakeCountsSource(Arc<Mutex<CountsState>>);
+
+impl Default for FakeCountsSource {
+    fn default() -> Self {
+        Self(Arc::new(Mutex::new(CountsState {
+            calls: 0,
+            lines: 100,
+            fail: false,
+        })))
+    }
+}
+
+impl FakeCountsSource {
+    /// Rust counts with `lines` lines.
+    pub fn counts_with(lines: u64) -> Counts {
+        Counts {
+            language: CountsLanguage::Rust,
+            lines,
+            tests: 7,
+            clippy_lints: Some(3),
+        }
+    }
+
+    pub fn calls(&self) -> u32 {
+        self.0.lock().unwrap().calls
+    }
+
+    pub fn set_lines(&self, lines: u64) {
+        self.0.lock().unwrap().lines = lines;
+    }
+
+    pub fn fail(&self, fail: bool) {
+        self.0.lock().unwrap().fail = fail;
+    }
+}
+
+impl CountsSource for FakeCountsSource {
+    fn counts(&self, _repo: &RepoName) -> impl Future<Output = Result<Counts, CountsError>> + Send {
+        let mut state = self.0.lock().unwrap();
+        state.calls += 1;
+        ready(if state.fail {
+            Err(CountsError::Upstream(anyhow::anyhow!("tarball refused")))
+        } else {
+            Ok(Self::counts_with(state.lines))
         })
     }
 }

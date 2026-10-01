@@ -14,6 +14,9 @@ pub mod secret;
 /// GitHub statistics for the allowlisted repositories.
 pub mod stats;
 
+/// Lines, tests and lints counted from each repository's source.
+pub mod counts;
+
 /// Boxed future returned by the `ErasedXService` twins (see each domain's ports). One
 /// alias so the erased signatures stay readable.
 pub type BoxFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>>;
