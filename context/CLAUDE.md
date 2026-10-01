@@ -39,7 +39,7 @@ Nothing under `domain/` may use:
 - `std::time::SystemTime`, `std::time::Instant`, `chrono::Utc::now()`
 - anything from `crate::inbound` or `crate::outbound`
 
-It may use `serde`, `serde_json`, `chrono` types, `thiserror`, `anyhow`, `tracing`, and `tokio::sync` and `tokio::task` for coordination.
+It may use `serde`, `serde_json`, `chrono` types, `thiserror`, `anyhow`, `tracing`, and `tokio::sync` and `tokio::task` for coordination. It may use the `measure` crate's types (`Counts`, `Language`) but never call `measure::measure`, which reads the filesystem; that call belongs to `outbound::tarball`.
 
 Time reaches the domain through the `Clock` port. That is what lets the freshness tests move the clock by hand.
 
@@ -56,6 +56,7 @@ src/
     │   ├── clock/           the time port
     │   ├── health/          models, ports, services
     │   ├── secret/          Secret
+    │   ├── counts/          models, ports (CountsSource, CountsService), services (the sweep)
     │   └── stats/
     │       ├── models/      repo_name, cache_key, repo_stats, snapshot, portfolio_stats, errors
     │       ├── ports.rs     StatsSource, StatsCache, StatsService + erased twin
@@ -69,7 +70,9 @@ src/
     └── outbound/
         ├── clock/           SystemClock
         ├── github/          the StatsSource adapter, and Link header parsing
+        ├── tarball/         the CountsSource adapter: tarball in, Counts out, nothing kept
         └── cache/           memory, layered, steller/
+measure/                     workspace crate: counts a checkout; the portfolio depends on it too
 ```
 
 Modules use `module/mod.rs`, never a `module.rs` beside a directory of the same name.

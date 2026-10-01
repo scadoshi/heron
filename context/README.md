@@ -19,6 +19,12 @@ Plus [`CLAUDE.md`](CLAUDE.md), the rules for working in the repo.
 
 The running log, newest first. Update it when something ships. [`progress/todo.md`](progress/todo.md) holds what is still open.
 
+## 2026-10-01: lines, tests and lints are measured here now
+
+`/stats` carries `counts` per repository: lines of source, test attributes and clippy lints set to warn or deny, plus `measured_at`. They are not on GitHub's API, so heron measures them itself: a sweep downloads a tarball of the default branch (`GET /repos/{owner}/{name}/tarball`, one request, no git), unpacks it under `MEASURE_DIR`, counts it with the new `measure` workspace crate, and deletes it. The sweep runs at startup and every `COUNTS_SWEEP_SECS` (300), and measures a repository again only when its `pushed_at` from the stats cache is newer than the measurement, so a repository nobody touches is never downloaded twice. Measurements are kept `COUNTS_RETAIN_SECS` (seven days) under `heron:counts:v1:owner/name`, and a failed measurement leaves the old one standing. The first local sweep measured five repositories including zwipe in a few seconds without a token.
+
+The portfolio used to carry these numbers in a `counts.json` refreshed by a test run by hand against local clones, which lagged whenever another repository moved. It now reads them live from here and keeps that file as the fallback, counted by the same crate.
+
 ## 2026-09-30: CORS on every response, because the edge ignores Vary
 
 The CORS header was only sent when a request carried `Origin`. Cloudflare caches `/stats` by URL and ignores `Vary`, so a copy filled by a request without `Origin` (a curl, the portfolio's deploy workflow) carried no header, and every browser served that copy failed CORS and fell back to the baked numbers until it expired. Seen as "live on desktop, as of on the phone". With a single allowed origin the header is now constant on every response; more than one still mirrors.

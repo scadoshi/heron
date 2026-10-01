@@ -24,11 +24,20 @@ The stats are cached, and the cache can run on [steller](https://github.com/scad
   "additions": null,
   "deletions": null,
   "fetched_at": "2026-09-29T17:18:43Z",
-  "stale": false
+  "stale": false,
+  "counts": {
+    "language": "Rust",
+    "lines": 6102,
+    "tests": 242,
+    "clippy_lints": 14,
+    "measured_at": "2026-10-01T14:02:11Z"
+  }
 }
 ```
 
 `additions` and `deletions` are `null` while GitHub is still computing them. `stale` is `true` when GitHub could not be reached and you are getting the last numbers it gave.
+
+`counts` is not from GitHub. A sweep downloads a tarball of each repository's default branch, counts every line of source, every test attribute and every clippy lint set to warn or deny, and throws the files away. It runs at startup and then every `COUNTS_SWEEP_SECS`, measuring a repository again only when GitHub's `pushed_at` is newer than its last measurement. `counts` is `null` until the first sweep reaches the repository. The counting lives in the `measure` crate in this workspace, which the portfolio also uses for its fallback numbers.
 
 Only repos on the allowlist are served, and a private one is refused even if it is listed.
 

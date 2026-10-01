@@ -14,9 +14,10 @@ The arrow is the direction of `use`. `domain` imports from neither side. `inboun
 
 | Layer | Holds | Knows about |
 |---|---|---|
-| `domain/` | `RepoName`, `Secret`, `CacheKey`, `RepoStats`, `Snapshot`, the ports, the two services | nothing outside itself |
+| `domain/` | `RepoName`, `Secret`, `CacheKey`, `RepoStats`, `Snapshot`, `CountsReport`, the ports, the three services | nothing outside itself, plus the `measure` crate's `Counts` type |
 | `inbound/http/` | `ApiError`, `AppState`, the router, handlers, `Http*` contracts | axum, and the domain's service ports |
-| `outbound/` | `GitHub`, `MemoryCache`, `StellerCache`, `LayeredCache`, `SystemClock` | reqwest, TCP, the OS clock, and the domain's ports |
+| `outbound/` | `GitHub`, `Tarball`, `MemoryCache`, `StellerCache`, `LayeredCache`, `SystemClock` | reqwest, TCP, the filesystem, the OS clock, and the domain's ports |
+| `measure/` | `measure()`, `Counts`, `Language`: a workspace crate that counts a checkout | the filesystem; nothing of heron |
 | `config.rs` | `Config`, `CacheBackend` | the environment |
 
 ## Ports
@@ -27,9 +28,11 @@ The arrow is the direction of `use`. `domain` imports from neither side. `inboun
 | `StatsSource` | `domain/stats/ports.rs` | `outbound::github::GitHub` |
 | `StatsCache` | `domain/stats/ports.rs` | `MemoryCache`, `StellerCache`, `LayeredCache` |
 | `StatsService` | `domain/stats/ports.rs` | `domain::stats::services::Service` |
+| `CountsSource` | `domain/counts/ports.rs` | `outbound::tarball::Tarball` |
+| `CountsService` | `domain/counts/ports.rs` | `domain::counts::services::Service` |
 | `HealthService` | `domain/health/ports.rs` | `domain::health::services::Service` |
 
-`StatsService` and `HealthService` each have an object-safe twin, `ErasedStatsService` and `ErasedHealthService`, which is what `AppState` holds. See "Type-erased services" in `decisions.md`.
+`StatsService`, `CountsService` and `HealthService` each have an object-safe twin, `ErasedStatsService`, `ErasedCountsService` and `ErasedHealthService`, which is what `AppState` holds. The sweeper task in the binary holds the counts twin too. See "Type-erased services" in `decisions.md`.
 
 ## One request, end to end
 
@@ -64,6 +67,8 @@ Only a source that could not answer falls back this way: `RateLimited` and `Upst
 |---|---|---|
 | `#[cfg(test)]` beside the code | units, against the fakes in `src/lib/test_support.rs` | nothing |
 | `src/lib/outbound/github/tests.rs` | the GitHub adapter against an in-process fake API | nothing |
+| `src/lib/outbound/tarball/tests.rs` | the tarball adapter against an in-process fake, plus one ignored test against GitHub | nothing |
+| `measure/src/lib.rs` | the counting, against checkouts written to a temp dir | nothing |
 | `tests/health.rs`, `tests/stats.rs` | the real router, service and memory cache, through `oneshot` | nothing |
 | `tests/binary.rs` | the real executable, spawned | nothing |
 | `tests/live_steller.rs` | the steller adapter | a running steller |
