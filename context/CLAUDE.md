@@ -72,7 +72,7 @@ src/
         ├── github/          the StatsSource adapter, and Link header parsing
         ├── tarball/         the CountsSource adapter: tarball in, Counts out, nothing kept
         └── cache/           memory, layered, steller/
-measure/                     workspace crate: counts a checkout; the portfolio depends on it too
+measure/                     workspace crate: counts a checkout, nothing of heron in it
 ```
 
 Modules use `module/mod.rs`, never a `module.rs` beside a directory of the same name.
