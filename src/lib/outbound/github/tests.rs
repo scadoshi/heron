@@ -7,7 +7,7 @@ use axum::{
     extract::{Request, State},
     http::{HeaderMap as AxumHeaders, StatusCode as AxumStatus, header},
     response::{IntoResponse, Response as AxumResponse},
-    routing::get,
+    routing::{get, post},
 };
 use serde_json::json;
 use std::sync::{Arc, Mutex};
@@ -22,6 +22,8 @@ struct Fake {
     commits: (u16, Option<&'static str>),
     commits_body: &'static str,
     contributors: (u16, &'static str),
+    /// Status and body for the GraphQL calendar query.
+    graphql: (u16, &'static str),
     /// Answered by every route when set, as status and headers.
     refusal: Option<(u16, Vec<(&'static str, &'static str)>)>,
     seen: Arc<Mutex<Vec<Seen>>>,
@@ -47,6 +49,12 @@ impl Default for Fake {
                 200,
                 r#"[{"total":2,"weeks":[{"w":1,"a":100,"d":10,"c":1},{"w":2,"a":5,"d":1,"c":1}]},
                     {"total":1,"weeks":[{"w":1,"a":7,"d":2,"c":1}]}]"#,
+            ),
+            graphql: (
+                200,
+                r#"{"data":{"user":{"contributionsCollection":{"contributionCalendar":{"totalContributions":61,"weeks":[
+                    {"contributionDays":[{"date":"2026-09-28","contributionCount":0,"contributionLevel":"NONE"},{"date":"2026-09-29","contributionCount":13,"contributionLevel":"SECOND_QUARTILE"}]},
+                    {"contributionDays":[{"date":"2026-09-30","contributionCount":48,"contributionLevel":"FOURTH_QUARTILE"}]}]}}}}}"#,
             ),
             refusal: None,
             seen: Arc::default(),
@@ -97,6 +105,7 @@ impl Fake {
                 "/repos/{owner}/{name}/stats/contributors",
                 get(contributors),
             )
+            .route("/graphql", post(graphql))
             .with_state(self.clone());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
@@ -468,4 +477,68 @@ async fn a_trailing_slash_on_the_base_is_dropped() {
     github.repo_stats(&repo("a/b")).await.unwrap();
     assert!(fake.saw("/repos/a/b/languages"));
     assert!(!fake.saw("//repos"));
+}
+
+async fn graphql(State(fake): State<Fake>, request: Request) -> AxumResponse {
+    fake.record(&request);
+    if let Some(refusal) = fake.refuse() {
+        return refusal;
+    }
+    let (status, body) = fake.graphql;
+    (
+        AxumStatus::from_u16(status).unwrap(),
+        [(header::CONTENT_TYPE, "application/json")],
+        body,
+    )
+        .into_response()
+}
+
+// == calendar ==
+
+#[tokio::test]
+async fn the_calendar_is_one_graphql_query_with_the_token_and_the_login() {
+    let fake = Fake::default();
+    let github = fake.serve(Some(TOKEN)).await;
+    let calendar = CalendarSource::calendar(&github, "scadoshi").await.unwrap();
+    assert_eq!(calendar.login, "scadoshi");
+    assert_eq!(calendar.total, 61);
+    assert_eq!(calendar.days.len(), 3);
+    assert_eq!(calendar.days[0].level, 0);
+    assert_eq!(calendar.days[1].count, 13);
+    assert_eq!(calendar.days[1].level, 2);
+    assert_eq!(calendar.days[2].level, 4);
+    let seen = fake.seen.lock().unwrap();
+    assert_eq!(seen.len(), 1);
+    assert_eq!(seen[0].path_and_query, "/graphql");
+    assert_eq!(
+        seen[0].headers[header::AUTHORIZATION],
+        format!("Bearer {TOKEN}")
+    );
+}
+
+#[tokio::test]
+async fn without_a_token_the_calendar_is_not_asked_for() {
+    let fake = Fake::default();
+    let github = fake.serve(None).await;
+    let error = CalendarSource::calendar(&github, "scadoshi")
+        .await
+        .unwrap_err();
+    assert!(matches!(error, CalendarError::NoToken), "{error}");
+    assert_eq!(fake.requests(), 0);
+}
+
+#[tokio::test]
+async fn a_graphql_error_in_the_body_is_upstream() {
+    let fake = Fake {
+        graphql: (
+            200,
+            r#"{"data":null,"errors":[{"message":"Could not resolve to a User"}]}"#,
+        ),
+        ..Fake::default()
+    };
+    let github = fake.serve(Some(TOKEN)).await;
+    let error = CalendarSource::calendar(&github, "nobody")
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("Could not resolve"), "{error}");
 }

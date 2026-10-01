@@ -1,12 +1,17 @@
-//! GitHub's REST API as a stats source.
+//! GitHub's REST API as a stats source, and its GraphQL API as the calendar source.
 //!
 //! Four requests per repository: the repository itself, its commits, its languages,
-//! and its contributor statistics. Only the fields read are deserialized.
+//! and its contributor statistics. One GraphQL query for the contribution calendar.
+//! Only the fields read are deserialized.
 
 /// Parsing of the `Link` response header.
 pub mod link;
 
 use crate::domain::{
+    calendar::{
+        models::{Calendar, CalendarError, Day},
+        ports::CalendarSource,
+    },
     secret::Secret,
     stats::{
         models::{
@@ -46,6 +51,12 @@ pub enum GitHubError {
         /// When the limit resets, from `x-ratelimit-reset`.
         reset_at: Option<DateTime<Utc>>,
     },
+    /// GraphQL answers nothing without a token.
+    #[error("no github token")]
+    NoToken,
+    /// GraphQL answered 200 with an error in the body.
+    #[error("github graphql: {0}")]
+    GraphQl(String),
     /// Any other status that is not a success.
     #[error("github returned status {0}")]
     Status(u16),
@@ -219,6 +230,69 @@ impl StatsSource for GitHub {
     }
 }
 
+/// The calendar the profile page draws: a year of days with a count and a shade.
+const CALENDAR_QUERY: &str = "query($login: String!) { user(login: $login) { contributionsCollection { contributionCalendar { totalContributions weeks { contributionDays { date contributionCount contributionLevel } } } } } }";
+
+impl GitHub {
+    async fn calendar(&self, login: &str) -> Result<Calendar, GitHubError> {
+        let Some(token) = &self.token else {
+            return Err(GitHubError::NoToken);
+        };
+        let body = serde_json::json!({
+            "query": CALENDAR_QUERY,
+            "variables": { "login": login },
+        });
+        let response = self
+            .client
+            .post(format!("{}/graphql", self.base))
+            .bearer_auth(token.read())
+            .json(&body)
+            .send()
+            .await?;
+        let response = accepted(response)?;
+        let reply: RawGraphQl = response.json().await?;
+        if let Some(error) = reply.errors.first() {
+            return Err(GitHubError::GraphQl(error.message.clone()));
+        }
+        let calendar = reply
+            .data
+            .and_then(|data| data.user)
+            .map(|user| user.contributions_collection.contribution_calendar)
+            .ok_or_else(|| GitHubError::GraphQl(format!("no calendar for {login}")))?;
+        let days = calendar
+            .weeks
+            .into_iter()
+            .flat_map(|week| week.contribution_days)
+            .map(|day| Day {
+                date: day.date,
+                count: day.contribution_count,
+                level: match day.contribution_level.as_str() {
+                    "FIRST_QUARTILE" => 1,
+                    "SECOND_QUARTILE" => 2,
+                    "THIRD_QUARTILE" => 3,
+                    "FOURTH_QUARTILE" => 4,
+                    _ => 0,
+                },
+            })
+            .collect();
+        Ok(Calendar {
+            login: login.to_string(),
+            total: calendar.total_contributions,
+            days,
+        })
+    }
+}
+
+impl CalendarSource for GitHub {
+    async fn calendar(&self, login: &str) -> Result<Calendar, CalendarError> {
+        self.calendar(login).await.map_err(|error| match error {
+            GitHubError::NoToken => CalendarError::NoToken,
+            GitHubError::RateLimited { reset_at } => CalendarError::RateLimited { reset_at },
+            other => CalendarError::Upstream(anyhow::Error::new(other)),
+        })
+    }
+}
+
 /// Passes a successful response through and classifies the rest.
 fn accepted(response: Response) -> Result<Response, GitHubError> {
     let status = response.status();
@@ -274,3 +348,53 @@ struct RawWeek {
 
 #[cfg(test)]
 mod tests;
+
+#[derive(Debug, Deserialize)]
+struct RawGraphQl {
+    data: Option<RawGraphQlData>,
+    #[serde(default)]
+    errors: Vec<RawGraphQlError>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawGraphQlError {
+    message: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawGraphQlData {
+    user: Option<RawUser>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawUser {
+    contributions_collection: RawContributions,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawContributions {
+    contribution_calendar: RawCalendar,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawCalendar {
+    total_contributions: u32,
+    weeks: Vec<RawCalendarWeek>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawCalendarWeek {
+    contribution_days: Vec<RawDay>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawDay {
+    date: chrono::NaiveDate,
+    contribution_count: u32,
+    contribution_level: String,
+}
