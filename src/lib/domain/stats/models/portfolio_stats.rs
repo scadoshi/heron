@@ -5,7 +5,6 @@ use crate::domain::stats::models::{
 #[cfg(test)]
 use chrono::Datelike;
 use chrono::{DateTime, Utc};
-use std::collections::BTreeMap;
 
 /// Sums across the repositories that resolved.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -15,22 +14,37 @@ pub struct Totals {
     pub commits: u64,
     pub stars: u64,
     /// Commits per week across every repository that has its weeks, oldest
-    /// first. Empty when none does.
+    /// first, as many weeks as the longest history. Empty when none does.
     pub weekly_commits: Vec<WeekCommits>,
 }
 
 impl Totals {
-    /// Sums `reports`, saturating. Weeks are summed by their start, so a
-    /// repository still computing its weeks simply adds nothing.
+    /// Sums `reports`, saturating. Weeks are summed by position counted back
+    /// from the newest, not by date: GitHub dates one repository's weeks a day
+    /// off another's, and every repository's last week is the current one. The
+    /// week keeps the latest date any repository gave it. A repository still
+    /// computing its weeks adds nothing.
     pub fn of(reports: &[RepoReport]) -> Self {
-        let mut by_week: BTreeMap<DateTime<Utc>, u32> = BTreeMap::new();
-        for week in reports
+        let histories: Vec<&[WeekCommits]> = reports
             .iter()
             .filter_map(|report| report.stats.weekly_commits.as_deref())
-            .flatten()
-        {
-            let total = by_week.entry(week.week).or_default();
-            *total = total.saturating_add(week.commits);
+            .collect();
+        let longest = histories.iter().map(|weeks| weeks.len()).max().unwrap_or(0);
+        // Index 0 is the newest week; reversed at the end.
+        let mut newest_first: Vec<Option<WeekCommits>> = vec![None; longest];
+        for weeks in histories {
+            for (back, week) in weeks.iter().rev().enumerate() {
+                let Some(slot) = newest_first.get_mut(back) else {
+                    break;
+                };
+                *slot = Some(match slot {
+                    Some(sum) => WeekCommits {
+                        week: sum.week.max(week.week),
+                        commits: sum.commits.saturating_add(week.commits),
+                    },
+                    None => *week,
+                });
+            }
         }
         let mut totals = reports.iter().fold(Self::default(), |totals, report| Self {
             repos: totals.repos.saturating_add(1),
@@ -38,10 +52,7 @@ impl Totals {
             stars: totals.stars.saturating_add(u64::from(report.stats.stars)),
             weekly_commits: Vec::new(),
         });
-        totals.weekly_commits = by_week
-            .into_iter()
-            .map(|(week, commits)| WeekCommits { week, commits })
-            .collect();
+        totals.weekly_commits = newest_first.into_iter().rev().flatten().collect();
         totals
     }
 }
@@ -66,7 +77,7 @@ mod tests {
     use chrono::TimeZone;
 
     #[test]
-    fn weekly_commits_are_summed_by_week_and_a_repository_without_them_adds_nothing() {
+    fn weekly_commits_are_summed_by_position_from_the_newest() {
         let sunday = |d| Utc.with_ymd_and_hms(2026, 9, d, 0, 0, 0).unwrap();
         let report = |name: &str, weeks: Option<Vec<(u32, u32)>>| {
             let mut stats = stats_for(&repo(name), 1);
@@ -85,9 +96,12 @@ mod tests {
                 stale: false,
             }
         };
+        // a/two dates its weeks a day early, as GitHub does for some
+        // repositories; by position its last week is still the current one,
+        // and a/three, still computing, adds nothing.
         let totals = Totals::of(&[
-            report("a/one", Some(vec![(13, 2), (20, 3)])),
-            report("a/two", Some(vec![(20, 4), (27, 1)])),
+            report("a/one", Some(vec![(13, 2), (20, 3), (27, 5)])),
+            report("a/two", Some(vec![(19, 4), (26, 1)])),
             report("a/three", None),
         ]);
         assert_eq!(totals.repos, 3);
@@ -96,6 +110,6 @@ mod tests {
             .iter()
             .map(|week| (week.week.day(), week.commits))
             .collect();
-        assert_eq!(weeks, [(13, 2), (20, 7), (27, 1)]);
+        assert_eq!(weeks, [(13, 2), (20, 7), (27, 6)]);
     }
 }
