@@ -120,7 +120,21 @@ impl<S: StatsSource, C: StatsCache, K: Clock> Service<S, C, K> {
         }
 
         match self.source.repo_stats(repo).await {
-            Ok(stats) => {
+            Ok(mut stats) => {
+                // GitHub computes contributor and commit statistics in the
+                // background and answers without them while it works, and
+                // forgets them again after a while. A value it had before is
+                // better than none, so the cached one stands until GitHub has
+                // a new one.
+                if let Some(cached) = &cached {
+                    let known = &cached.value;
+                    stats.additions = stats.additions.or(known.additions);
+                    stats.deletions = stats.deletions.or(known.deletions);
+                    stats.weekly_commits = stats
+                        .weekly_commits
+                        .take()
+                        .or_else(|| known.weekly_commits.clone());
+                }
                 let fetched_at = self.clock.now();
                 let snapshot = Snapshot {
                     value: stats,
@@ -373,5 +387,22 @@ mod tests {
         source.fail_with(Failure::RateLimited);
         let error = service.portfolio_stats().await.unwrap_err();
         assert!(matches!(error, StatsError::RateLimited { .. }));
+    }
+
+    #[tokio::test]
+    async fn computed_fields_github_forgot_stand_from_the_last_answer() {
+        let (service, source, _, clock) = service(&["a/b"]);
+        let first = service.repo_stats(&repo("a/b")).await.unwrap();
+        assert!(first.stats.weekly_commits.is_some());
+        assert_eq!(first.stats.additions, Some(500));
+
+        source.set_computed(false);
+        clock.advance(FRESH_SECS);
+        let second = service.repo_stats(&repo("a/b")).await.unwrap();
+        assert_eq!(second.stats.weekly_commits, first.stats.weekly_commits);
+        assert_eq!(second.stats.additions, Some(500));
+        assert_eq!(second.stats.deletions, Some(100));
+        assert!(!second.stale, "a refresh that answered is not stale");
+        assert_eq!(source.calls(), 2);
     }
 }

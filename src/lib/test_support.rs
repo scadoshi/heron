@@ -20,7 +20,7 @@ use crate::domain::{
             cache_key::CacheKey,
             errors::{CacheError, StatsError},
             repo_name::RepoName,
-            repo_stats::{Language, RepoStats},
+            repo_stats::{Language, RepoStats, WeekCommits},
         },
         ports::{StatsCache, StatsSource},
     },
@@ -109,6 +109,8 @@ struct SourceState {
     calls: u32,
     commits: u64,
     pushed_at: Option<DateTime<Utc>>,
+    /// Whether the computed fields (churn, weekly commits) come back.
+    computed: bool,
     failure: Option<Failure>,
     failing_repos: HashMap<RepoName, Failure>,
     delay: Option<Duration>,
@@ -124,6 +126,7 @@ impl Default for FakeSource {
             calls: 0,
             commits: 10,
             pushed_at: Some(Utc.with_ymd_and_hms(2026, 9, 1, 12, 0, 0).unwrap()),
+            computed: true,
             failure: None,
             failing_repos: HashMap::new(),
             delay: None,
@@ -142,6 +145,11 @@ impl FakeSource {
 
     pub fn set_pushed_at(&self, pushed_at: Option<DateTime<Utc>>) {
         self.0.lock().unwrap().pushed_at = pushed_at;
+    }
+
+    /// Whether answers carry the fields GitHub computes in the background.
+    pub fn set_computed(&self, computed: bool) {
+        self.0.lock().unwrap().computed = computed;
     }
 
     /// Every call fails from here on.
@@ -175,6 +183,16 @@ impl StatsSource for FakeSource {
             } else {
                 let mut answer = stats_for(repo, state.commits);
                 answer.pushed_at = state.pushed_at;
+                if state.computed {
+                    answer.weekly_commits = Some(vec![WeekCommits {
+                        week: Utc.with_ymd_and_hms(2026, 8, 30, 0, 0, 0).unwrap(),
+                        commits: 4,
+                    }]);
+                } else {
+                    answer.additions = None;
+                    answer.deletions = None;
+                    answer.weekly_commits = None;
+                }
                 Ok(answer)
             };
             (state.delay, outcome)

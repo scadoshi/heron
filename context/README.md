@@ -21,7 +21,7 @@ The running log, newest first. Update it when something ships. [`progress/todo.m
 
 ## 2026-10-01: weekly commits
 
-Each repository's stats carry `weekly_commits`, the last 52 weeks from `GET /repos/{owner}/{name}/stats/commit_activity`, a fifth request per refresh with the same 202-while-computing handling as the contributor statistics. `totals.weekly_commits` sums them by week across the repositories that have them, which is what the portfolio draws as commits over time. The field is serde-defaulted, so payloads cached before it decode as `None` and fill in at the next refresh; no schema bump.
+Each repository's stats carry `weekly_commits`, the last 52 weeks from `GET /repos/{owner}/{name}/stats/commit_activity`, a fifth request per refresh with the same 202-while-computing handling as the contributor statistics. `totals.weekly_commits` sums them by week across the repositories that have them, which is what the portfolio draws as commits over time. The field is serde-defaulted, so payloads cached before it decode as `None` and fill in at the next refresh; no schema bump. GitHub also forgets the computed activity after a while and answers 202 again, which emptied the weeks on the next refresh: a refresh now keeps the cached weeks (and additions and deletions, same mechanism) when the new answer lacks them, so coverage only grows.
 
 ## 2026-10-01: the contribution calendar
 
