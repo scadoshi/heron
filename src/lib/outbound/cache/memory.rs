@@ -124,7 +124,7 @@ mod tests {
         assert!(cache.get(&key()).await.unwrap().is_some());
         tokio::time::sleep(Duration::from_millis(30)).await;
         assert_eq!(cache.get(&key()).await.unwrap(), None);
-        assert!(cache.entries().is_empty());
+        assert_eq!(cache.entries().len(), 0);
     }
 
     #[tokio::test]

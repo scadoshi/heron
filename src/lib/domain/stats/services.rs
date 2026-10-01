@@ -354,7 +354,7 @@ mod tests {
         assert_eq!(names, ["a/one", "a/two", "a/three"]);
         assert_eq!(portfolio.totals.repos, 3);
         assert_eq!(portfolio.totals.commits, 30);
-        assert!(portfolio.unavailable.is_empty());
+        assert_eq!(portfolio.unavailable, Vec::<RepoName>::new());
     }
 
     #[tokio::test]

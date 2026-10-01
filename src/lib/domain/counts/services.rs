@@ -207,7 +207,8 @@ mod tests {
         let (service, source, _, cache, clock) = service(&["a/b", "c/d"]);
         let sweep = service.sweep().await;
         assert_eq!(sweep.measured, [repo("a/b"), repo("c/d")]);
-        assert!(sweep.skipped.is_empty() && sweep.failed.is_empty());
+        assert_eq!(sweep.skipped, Vec::<RepoName>::new());
+        assert_eq!(sweep.failed.len(), 0);
         assert_eq!(source.calls(), 2);
         assert_eq!(cache.last_retain(), Some(Duration::from_hours(168)));
         let report = service.counts(&repo("a/b")).await.unwrap();
