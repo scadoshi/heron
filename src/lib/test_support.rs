@@ -6,6 +6,10 @@
 #![allow(missing_docs, clippy::arithmetic_side_effects)]
 
 use crate::domain::{
+    calendar::{
+        models::{Calendar, CalendarError, Day},
+        ports::CalendarSource,
+    },
     clock::Clock,
     counts::{
         models::{Counts, CountsError, Language as CountsLanguage},
@@ -21,7 +25,7 @@ use crate::domain::{
         ports::{StatsCache, StatsSource},
     },
 };
-use chrono::{DateTime, TimeDelta, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, TimeDelta, TimeZone, Utc};
 use std::{
     collections::HashMap,
     future::{Future, ready},
@@ -322,6 +326,73 @@ impl CountsSource for FakeCountsSource {
             Err(CountsError::Upstream(anyhow::anyhow!("tarball refused")))
         } else {
             Ok(Self::counts_with(state.lines))
+        })
+    }
+}
+
+// == calendar source ==
+
+struct CalendarState {
+    calls: u32,
+    total: u32,
+    fail: bool,
+}
+
+/// A calendar source answering a fixed year and failing on request.
+#[derive(Clone)]
+pub struct FakeCalendar(Arc<Mutex<CalendarState>>);
+
+impl Default for FakeCalendar {
+    fn default() -> Self {
+        Self(Arc::new(Mutex::new(CalendarState {
+            calls: 0,
+            total: 5099,
+            fail: false,
+        })))
+    }
+}
+
+impl FakeCalendar {
+    /// Three days ending 2026-10-01, summing to whatever `total` the fake holds
+    /// only when it is 5099; otherwise the days are the same and `total` differs,
+    /// which is enough to tell answers apart.
+    pub fn calendar_for(login: &str, total: u32) -> Calendar {
+        let day = |d, count, level| Day {
+            date: NaiveDate::from_ymd_opt(2026, 9, d).unwrap_or(NaiveDate::MIN),
+            count,
+            level,
+        };
+        Calendar {
+            login: login.to_string(),
+            total,
+            days: vec![day(29, 0, 0), day(30, 12, 2), day(31, 48, 3)],
+        }
+    }
+
+    pub fn calls(&self) -> u32 {
+        self.0.lock().unwrap().calls
+    }
+
+    pub fn set_total(&self, total: u32) {
+        self.0.lock().unwrap().total = total;
+    }
+
+    pub fn fail(&self, fail: bool) {
+        self.0.lock().unwrap().fail = fail;
+    }
+}
+
+impl CalendarSource for FakeCalendar {
+    fn calendar(
+        &self,
+        login: &str,
+    ) -> impl Future<Output = Result<Calendar, CalendarError>> + Send {
+        let mut state = self.0.lock().unwrap();
+        state.calls += 1;
+        ready(if state.fail {
+            Err(CalendarError::Upstream(anyhow::anyhow!("graphql refused")))
+        } else {
+            Ok(Self::calendar_for(login, state.total))
         })
     }
 }
