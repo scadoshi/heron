@@ -19,6 +19,10 @@ Plus [`CLAUDE.md`](CLAUDE.md), the rules for working in the repo.
 
 The running log, newest first. Update it when something ships. [`progress/todo.md`](progress/todo.md) holds what is still open.
 
+## 2026-10-01: weekly commits
+
+Each repository's stats carry `weekly_commits`, the last 52 weeks from `GET /repos/{owner}/{name}/stats/commit_activity`, a fifth request per refresh with the same 202-while-computing handling as the contributor statistics. `totals.weekly_commits` sums them by week across the repositories that have them, which is what the portfolio draws as commits over time. The field is serde-defaulted, so payloads cached before it decode as `None` and fill in at the next refresh; no schema bump.
+
 ## 2026-10-01: the contribution calendar
 
 `/stats` carries `calendar`: the account's last year of contributions, 369 days with a count and GitHub's own 0 to 4 shade, from one GraphQL query (`contributionsCollection.contributionCalendar`) with the token heron already has. Its own domain beside stats and counts: fresh for `CALENDAR_FRESH_SECS` (an hour), kept seven days, served stale when GitHub fails, `null` without a token. `GITHUB_LOGIN` names the account and defaults to the first allowlisted repository's owner. The portfolio draws it as the heatmap under the hero. The first query from the box answered 5,099 contributions.
