@@ -24,6 +24,9 @@ struct Fake {
     contributors: (u16, &'static str),
     /// Status and body for the commit activity request.
     activity: (u16, &'static str),
+    /// What the second and later asks for commit activity answer, when it
+    /// differs from the first.
+    activity_then: Option<(u16, &'static str)>,
     /// Status and body for the GraphQL calendar query.
     graphql: (u16, &'static str),
     /// Answered by every route when set, as status and headers.
@@ -62,6 +65,7 @@ impl Default for Fake {
                     {"contributionDays":[{"date":"2026-09-28","contributionCount":0,"contributionLevel":"NONE"},{"date":"2026-09-29","contributionCount":13,"contributionLevel":"SECOND_QUARTILE"}]},
                     {"contributionDays":[{"date":"2026-09-30","contributionCount":48,"contributionLevel":"FOURTH_QUARTILE"}]}]}}}}}"#,
             ),
+            activity_then: None,
             refusal: None,
             seen: Arc::default(),
         }
@@ -94,11 +98,16 @@ impl Fake {
     }
 
     fn saw(&self, fragment: &str) -> bool {
+        self.count(fragment) > 0
+    }
+
+    fn count(&self, fragment: &str) -> usize {
         self.seen
             .lock()
             .unwrap()
             .iter()
-            .any(|seen| seen.path_and_query.contains(fragment))
+            .filter(|seen| seen.path_and_query.contains(fragment))
+            .count()
     }
 
     /// Serves the fake and returns a client pointed at it.
@@ -117,7 +126,9 @@ impl Fake {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
         tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
-        GitHub::new(&base, token.map(|t| Secret::new(t).unwrap())).unwrap()
+        GitHub::new(&base, token.map(|t| Secret::new(t).unwrap()))
+            .unwrap()
+            .with_computing_pause(Duration::ZERO)
     }
 }
 
@@ -505,7 +516,10 @@ async fn activity(State(fake): State<Fake>, request: Request) -> AxumResponse {
     if let Some(refusal) = fake.refuse() {
         return refusal;
     }
-    let (status, body) = fake.activity;
+    let (status, body) = match fake.activity_then {
+        Some(then) if fake.count("/stats/commit_activity") > 1 => then,
+        _ => fake.activity,
+    };
     (
         AxumStatus::from_u16(status).unwrap(),
         [(header::CONTENT_TYPE, "application/json")],
@@ -537,6 +551,28 @@ async fn weekly_commits_are_none_while_github_is_still_computing_them() {
     let github = fake.serve(None).await;
     let stats = github.repo_stats(&repo("a/b")).await.unwrap();
     assert_eq!(stats.weekly_commits, None);
+    assert_eq!(
+        fake.count("/stats/commit_activity"),
+        2,
+        "asked once more, then left for the next refresh"
+    );
+}
+
+#[tokio::test]
+async fn statistics_github_finishes_during_the_pause_come_back_on_the_second_ask() {
+    let fake = Fake {
+        activity: (202, ""),
+        activity_then: Some((
+            200,
+            r#"[{"week":1758412800,"total":3,"days":[0,1,0,2,0,0,0]}]"#,
+        )),
+        ..Fake::default()
+    };
+    let github = fake.serve(None).await;
+    let stats = github.repo_stats(&repo("a/b")).await.unwrap();
+    let weeks = stats.weekly_commits.unwrap();
+    assert_eq!(weeks.len(), 1);
+    assert_eq!(fake.count("/stats/commit_activity"), 2);
 }
 
 // == calendar ==

@@ -158,7 +158,7 @@ The API reports `additions` and `deletions` from GitHub's contributor statistics
 
 **Why:** they count every rewrite again, along with lockfile churn, vendored code and generated files. steller's net was 7,560 on the day its `src/` held 5,901 lines.
 
-**Also:** GitHub computes these in the background and answers 202 until it is done. The fields are `null` then, and the next refresh asks again. Nothing waits.
+**Also:** GitHub computes these in the background and answers 202 until it is done, which takes a few seconds, and lets the result go cold again between refreshes for a repository nobody pushes to. The first ask starts the job, so the refresh waits three seconds and asks once more (`COMPUTING_PAUSE`); a second 202 leaves the fields `null` and the cached value, if any, is kept until the next refresh.
 
 ---
 

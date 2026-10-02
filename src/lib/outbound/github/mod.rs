@@ -36,6 +36,8 @@ use thiserror::Error;
 const USER_AGENT: &str = "heron (+https://github.com/scadoshi/heron)";
 const API_VERSION: &str = "2022-11-28";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+/// The wait before the second ask for statistics GitHub is still computing.
+const COMPUTING_PAUSE: Duration = Duration::from_secs(3);
 
 /// Errors reading from GitHub.
 #[derive(Debug, Error)]
@@ -83,6 +85,9 @@ pub struct GitHub {
     client: reqwest::Client,
     base: String,
     token: Option<Secret>,
+    /// How long to wait before asking once more for statistics GitHub is
+    /// still computing.
+    computing_pause: Duration,
 }
 
 impl GitHub {
@@ -107,7 +112,38 @@ impl GitHub {
             client,
             base: base.trim_end_matches('/').to_string(),
             token,
+            computing_pause: COMPUTING_PAUSE,
         })
+    }
+
+    /// The same client with a different wait before the second ask for
+    /// statistics, so a test does not sit through the real one.
+    #[cfg(test)]
+    fn with_computing_pause(mut self, pause: Duration) -> Self {
+        self.computing_pause = pause;
+        self
+    }
+
+    /// One of GitHub's `/stats` answers, or `None` while GitHub is still
+    /// computing it.
+    ///
+    /// GitHub computes these in the background and answers 202 (or 204) with
+    /// an empty body until it is done, which takes a few seconds, and lets the
+    /// result go cold again between refreshes for a repository nobody pushes
+    /// to. The first ask starts the job, so one more after `computing_pause`
+    /// catches most of them; a second 202 waits for the next refresh.
+    async fn statistics(
+        &self,
+        repo: &RepoName,
+        suffix: &str,
+    ) -> Result<Option<reqwest::Response>, GitHubError> {
+        let response = self.get(repo, suffix).send().await?;
+        if !computing(&response) {
+            return Ok(Some(response));
+        }
+        tokio::time::sleep(self.computing_pause).await;
+        let response = self.get(repo, suffix).send().await?;
+        Ok((!computing(&response)).then_some(response))
     }
 
     fn get(&self, repo: &RepoName, suffix: &str) -> reqwest::RequestBuilder {
@@ -166,17 +202,10 @@ impl GitHub {
 
     /// Lines added and deleted across all contributors, or `None` when GitHub has
     /// nothing to report yet.
-    ///
-    /// GitHub computes these in the background and answers 202 with an empty body
-    /// until it is done. Nothing here waits for that: the next refresh asks again.
     async fn churn(&self, repo: &RepoName) -> Result<Option<(u64, u64)>, GitHubError> {
-        let response = self.get(repo, "/stats/contributors").send().await?;
-        if matches!(
-            response.status(),
-            StatusCode::ACCEPTED | StatusCode::NO_CONTENT
-        ) {
+        let Some(response) = self.statistics(repo, "/stats/contributors").await? else {
             return Ok(None);
-        }
+        };
         let response = match accepted(response) {
             Ok(response) => response,
             Err(limited @ GitHubError::RateLimited { .. }) => return Err(limited),
@@ -198,15 +227,11 @@ impl GitHub {
     }
 
     /// Commits per week over the last year, oldest first, or `None` while GitHub
-    /// is still computing them. Same 202 dance as `churn`.
+    /// is still computing them.
     async fn activity(&self, repo: &RepoName) -> Result<Option<Vec<WeekCommits>>, GitHubError> {
-        let response = self.get(repo, "/stats/commit_activity").send().await?;
-        if matches!(
-            response.status(),
-            StatusCode::ACCEPTED | StatusCode::NO_CONTENT
-        ) {
+        let Some(response) = self.statistics(repo, "/stats/commit_activity").await? else {
             return Ok(None);
-        }
+        };
         let response = match accepted(response) {
             Ok(response) => response,
             Err(limited @ GitHubError::RateLimited { .. }) => return Err(limited),
@@ -331,6 +356,14 @@ impl CalendarSource for GitHub {
 }
 
 /// Passes a successful response through and classifies the rest.
+/// GitHub's answer while it is still computing a `/stats` result.
+fn computing(response: &Response) -> bool {
+    matches!(
+        response.status(),
+        StatusCode::ACCEPTED | StatusCode::NO_CONTENT
+    )
+}
+
 fn accepted(response: Response) -> Result<Response, GitHubError> {
     let status = response.status();
     if status.is_success() {

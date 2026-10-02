@@ -19,6 +19,10 @@ Plus [`CLAUDE.md`](CLAUDE.md), the rules for working in the repo.
 
 The running log, newest first. Update it when something ships. [`progress/todo.md`](progress/todo.md) holds what is still open.
 
+## 2026-10-02: a second ask for statistics GitHub is still computing
+
+A restart of steller on the box showed what the carry-forward cannot cover: with nothing cached, a refresh got weeks for three repositories of twelve, and the next three refreshes got the same three. GitHub computes `/stats/commit_activity` and `/stats/contributors` in a few seconds once asked, then lets the result go cold again inside the fifteen minutes between refreshes for any repository nobody is pushing to, so every refresh landed on a fresh 202 for the nine quiet ones. The refresh now waits three seconds after a 202 and asks once more, for both statistics; the test fake answers 202 then 200 to prove it. Warming the nine by hand right before a refresh filled prod to all twelve, 3,294 commits for the year.
+
 ## 2026-10-01: weekly commits
 
 Each repository's stats carry `weekly_commits`, the last 52 weeks from `GET /repos/{owner}/{name}/stats/commit_activity`, a fifth request per refresh with the same 202-while-computing handling as the contributor statistics. `totals.weekly_commits` sums them by week across the repositories that have them, which is what the portfolio draws as commits over time. The field is serde-defaulted, so payloads cached before it decode as `None` and fill in at the next refresh; no schema bump. GitHub also forgets the computed activity after a while and answers 202 again, which emptied the weeks on the next refresh: a refresh now keeps the cached weeks (and additions and deletions, same mechanism) when the new answer lacks them, so coverage only grows.
