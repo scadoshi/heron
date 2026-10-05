@@ -82,7 +82,7 @@ More in `architecture/structure.md`. The reasons are in `architecture/decisions.
 
 ### Type-erased services
 
-`AppState` holds `Arc<dyn ErasedStatsService>` and `Arc<dyn ErasedHealthService>`. Handlers take `State(state): State<AppState>` and carry no generic parameters.
+`AppState` holds one `Arc<dyn Erased*Service>` per service: stats, health, counts and calendar. Handlers take `State(state): State<AppState>` and carry no generic parameters.
 
 Each service port is two traits. The real one returns `impl Future + Send`. Its object-safe twin returns `BoxFuture`, and a blanket impl forwards to the real one. The composition root is where erasure pays for itself: each cache backend gives the service a different concrete type, and erasing them is what lets `HttpServer` hold one.
 
@@ -116,7 +116,7 @@ To add a method to a service:
 cargo run                                            # needs a .env, see .env.example
 cargo test                                           # everything that needs no steller
 cargo +nightly fmt                                   # nightly, not stable
-cargo clippy --all-targets -- -D warnings            # what CI runs
+cargo clippy --all-targets --locked -- -D warnings   # what CI runs
 STELLER_ADDRESS=127.0.0.1:3000 cargo test --test live_steller -- --ignored
 ```
 
@@ -135,6 +135,11 @@ How to start steller for the live tests is in `development/testing.md`.
 | `STELLER_ADDRESS` | with `steller` or `layered` | |
 | `STATS_FRESH_SECS` | no | 21600 |
 | `STATS_RETAIN_SECS` | no | 604800 |
+| `COUNTS_SWEEP_SECS` | no | 300 |
+| `COUNTS_RETAIN_SECS` | no | 604800 |
+| `MEASURE_DIR` | no | `$TMPDIR/heron-measure` |
+| `GITHUB_LOGIN` | no | owner of the first repo in `GITHUB_REPOS` |
+| `CALENDAR_FRESH_SECS` | no | 3600 |
 | `RUST_LOG` | no | `info` |
 
 `.env.example` has every one with a comment. `config.rs` is the authority.
