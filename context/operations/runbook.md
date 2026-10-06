@@ -12,6 +12,8 @@ systemctl status heron
 
 `/health/cache` always answers 200. Read the body: `status` is `healthy` or `unreachable`.
 
+UptimeRobot asks `https://api.scadoshi.dev/health` every five minutes and emails and pushes when it stops answering 200 (since 2026-10-06). That covers heron and the tunnel in front of it. It does not cover steller: a dead cache leaves `/health` at 200 by design, so a stopped steller still only shows up in `/health/cache` and the warn-level log.
+
 ## Logs
 
 ```bash
