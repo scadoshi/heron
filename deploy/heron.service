@@ -9,10 +9,11 @@ Description=heron, GitHub stats for scottyfermo.com
 Documentation=https://github.com/scadoshi/heron
 Wants=network-online.target
 After=network-online.target
-# With CACHE_BACKEND=steller or layered, uncomment both so steller starts first.
-# Wants, not Requires: under layered the server runs without it.
-# Wants=steller.service
-# After=steller.service
+# With CACHE_BACKEND=steller or layered, steller starts first. Comment both out
+# under CACHE_BACKEND=memory. Wants, not Requires: under layered the server runs
+# without it.
+Wants=steller.service
+After=steller.service
 
 [Service]
 Type=simple
@@ -29,12 +30,17 @@ RestartSec=5
 KillSignal=SIGTERM
 TimeoutStopSec=30
 
-# The memory cache holds one snapshot per configured repository.
+# The memory cache holds one snapshot per configured repository. A counts
+# measurement is the peak: its tarball and checkout go to disk under
+# CacheDirectory, not /tmp: PrivateTmp's /tmp is RAM charged to this limit.
 MemoryMax=128M
 MemoryHigh=96M
 TasksMax=256
 
-# Logs go to stdout and nowhere else, so nothing on disk is writable.
+# Logs go to stdout and nowhere else. The one writable path is
+# /var/cache/heron, scratch space for counts measurements (MEASURE_DIR).
+CacheDirectory=heron
+Environment=MEASURE_DIR=/var/cache/heron/measure
 StandardInput=null
 StandardOutput=journal
 StandardError=journal

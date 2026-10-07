@@ -137,7 +137,7 @@ How to start steller for the live tests is in `development/testing.md`.
 | `STATS_RETAIN_SECS` | no | 604800 |
 | `COUNTS_SWEEP_SECS` | no | 300 |
 | `COUNTS_RETAIN_SECS` | no | 604800 |
-| `MEASURE_DIR` | no | `$TMPDIR/heron-measure` |
+| `MEASURE_DIR` | no | `$TMPDIR/heron-measure`; the unit sets `/var/cache/heron/measure`, on disk, because `/tmp` under `PrivateTmp` is RAM charged to `MemoryMax` |
 | `GITHUB_LOGIN` | no | owner of the first repo in `GITHUB_REPOS` |
 | `CALENDAR_FRESH_SECS` | no | 3600 |
 | `RUST_LOG` | no | `info` |
