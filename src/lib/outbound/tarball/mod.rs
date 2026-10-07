@@ -1,8 +1,9 @@
 //! GitHub's tarball download as a counts source.
 //!
 //! One request per repository: `GET /repos/{owner}/{name}/tarball` answers the
-//! default branch as a gzipped tar, which is unpacked under a scratch directory,
-//! measured, and deleted. Nothing stays on disk between measurements.
+//! default branch as a gzipped tar, which is streamed to a scratch directory a
+//! chunk at a time, unpacked there, measured, and deleted. Nothing stays on disk
+//! between measurements.
 
 #[cfg(test)]
 mod tests;
@@ -19,17 +20,21 @@ use anyhow::Context;
 use flate2::read::GzDecoder;
 use reqwest::header::{ACCEPT, HeaderMap, HeaderValue};
 use std::{
-    fs, io,
+    fs,
+    io::{self, BufReader},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
     time::Duration,
 };
+use tokio::io::AsyncWriteExt;
 
 /// GitHub rejects a request that carries no `User-Agent`.
 const USER_AGENT: &str = "heron (+https://github.com/scadoshi/heron)";
 const API_VERSION: &str = "2022-11-28";
-/// A tarball is a few megabytes; the budget covers a slow link.
+/// A tarball runs to tens of megabytes; the budget covers a slow link.
 const REQUEST_TIMEOUT: Duration = Duration::from_mins(1);
+/// The downloaded tarball's name inside its unpack directory.
+const ARCHIVE: &str = "tarball.tar.gz";
 
 /// Makes each unpack directory unique while the process lives.
 static UNPACKS: AtomicU64 = AtomicU64::new(0);
@@ -69,7 +74,9 @@ impl Tarball {
         })
     }
 
-    async fn download(&self, repo: &RepoName) -> Result<Vec<u8>, CountsError> {
+    /// Streams the tarball of `repo` to `archive`, a chunk at a time.
+    async fn download(&self, repo: &RepoName, archive: &Path) -> Result<(), CountsError> {
+        let upstream = |error: anyhow::Error| CountsError::Upstream(error);
         let request = self
             .client
             .get(format!("{}/repos/{repo}/tarball", self.base));
@@ -77,7 +84,7 @@ impl Tarball {
             Some(token) => request.bearer_auth(token.read()),
             None => request,
         };
-        let response = request
+        let mut response = request
             .send()
             .await
             .map_err(|error| CountsError::Upstream(error.into()))?;
@@ -87,24 +94,45 @@ impl Tarball {
                 "github answered {status} for the tarball of {repo}"
             )));
         }
-        let bytes = response
-            .bytes()
+        let mut file = tokio::fs::File::create(archive)
             .await
-            .map_err(|error| CountsError::Upstream(error.into()))?;
-        Ok(bytes.to_vec())
+            .with_context(|| format!("creating {}", archive.display()))
+            .map_err(upstream)?;
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|error| CountsError::Upstream(error.into()))?
+        {
+            file.write_all(&chunk)
+                .await
+                .with_context(|| format!("writing {}", archive.display()))
+                .map_err(upstream)?;
+        }
+        file.flush()
+            .await
+            .with_context(|| format!("writing {}", archive.display()))
+            .map_err(upstream)
     }
 }
 
 impl CountsSource for Tarball {
     async fn counts(&self, repo: &RepoName) -> Result<Counts, CountsError> {
-        let bytes = self.download(repo).await?;
         let work = self.dir.join(format!(
             "{}-{}",
             repo.to_string().replace('/', "-"),
             UNPACKS.fetch_add(1, Ordering::Relaxed)
         ));
+        let archive = work.join(ARCHIVE);
+        tokio::fs::create_dir_all(&work)
+            .await
+            .with_context(|| format!("creating {}", work.display()))
+            .map_err(CountsError::Upstream)?;
+        if let Err(error) = self.download(repo, &archive).await {
+            remove(&work);
+            return Err(error);
+        }
         let repo = repo.clone();
-        tokio::task::spawn_blocking(move || measure_archive(&bytes, &work, &repo))
+        tokio::task::spawn_blocking(move || measure_archive(&archive, &work, &repo))
             .await
             .map_err(|error| {
                 CountsError::Upstream(anyhow::anyhow!("measure task failed: {error}"))
@@ -112,24 +140,28 @@ impl CountsSource for Tarball {
     }
 }
 
-/// Unpacks `bytes` under `work`, measures the checkout inside, and removes `work`
-/// whether or not the measurement succeeded.
-fn measure_archive(bytes: &[u8], work: &Path, repo: &RepoName) -> Result<Counts, CountsError> {
-    let result = unpack_and_measure(bytes, work, repo);
+/// Unpacks `archive` under `work`, measures the checkout inside, and removes
+/// `work` whether or not the measurement succeeded.
+fn measure_archive(archive: &Path, work: &Path, repo: &RepoName) -> Result<Counts, CountsError> {
+    let result = unpack_and_measure(archive, work, repo);
+    remove(work);
+    result
+}
+
+fn remove(work: &Path) {
     if let Err(error) = fs::remove_dir_all(work)
         && error.kind() != io::ErrorKind::NotFound
     {
         tracing::warn!("could not remove {}: {error}", work.display());
     }
-    result
 }
 
-fn unpack_and_measure(bytes: &[u8], work: &Path, repo: &RepoName) -> Result<Counts, CountsError> {
+fn unpack_and_measure(archive: &Path, work: &Path, repo: &RepoName) -> Result<Counts, CountsError> {
     let upstream = |error: anyhow::Error| CountsError::Upstream(error);
-    fs::create_dir_all(work)
-        .with_context(|| format!("creating {}", work.display()))
+    let file = fs::File::open(archive)
+        .with_context(|| format!("opening {}", archive.display()))
         .map_err(upstream)?;
-    tar::Archive::new(GzDecoder::new(bytes))
+    tar::Archive::new(GzDecoder::new(BufReader::new(file)))
         .unpack(work)
         .with_context(|| format!("unpacking the tarball of {repo}"))
         .map_err(upstream)?;
@@ -142,7 +174,8 @@ fn unpack_and_measure(bytes: &[u8], work: &Path, repo: &RepoName) -> Result<Coun
         .ok_or_else(|| CountsError::NotMeasurable(repo.clone()))
 }
 
-/// GitHub's tarball holds one top-level directory, `owner-name-sha`.
+/// GitHub's tarball holds one top-level directory, `owner-name-sha`, beside the
+/// archive file itself.
 fn single_directory_in(dir: &Path) -> anyhow::Result<PathBuf> {
     let mut directories = fs::read_dir(dir)?
         .filter_map(Result::ok)
