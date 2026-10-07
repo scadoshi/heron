@@ -19,6 +19,14 @@ Plus [`CLAUDE.md`](CLAUDE.md), the rules for working in the repo.
 
 The running log, newest first. Update it when something ships. [`progress/todo.md`](progress/todo.md) holds what is still open.
 
+## 2026-10-07: killed at its own memory limit
+
+UptimeRobot and scotland's probe each caught a `/health` timeout, at 07:20 and 07:39 UTC. The journal showed why: `heron.service: Failed with result 'oom-kill'`, at the unit's `MemoryMax=128M`, and systemd had it back in five seconds, so nothing else noticed. It had been happening several times a day since the counts sweep shipped. The box itself had 3 GB free.
+
+Three things stacked up. A measurement held the whole tarball in memory twice (`bytes()` then `to_vec()`), and portfolio's is 36 MB and zwipe's 24 MB. It unpacked into `/tmp`, which `PrivateTmp=true` makes a tmpfs: RAM, charged to the unit's limit and not reclaimable. And glibc's malloc kept the freed buffers in its arenas, so the process idled at 66 to 100 MB with nothing live and every measurement started near the cap.
+
+The tarball now streams to a file a chunk at a time, the unit's `CacheDirectory=heron` puts `MEASURE_DIR` on disk at `/var/cache/heron/measure`, and mimalloc is the global allocator. heron idles near 20 MB. A push to portfolio made the first big measurement under the fix: it succeeded with no restart, and the cgroup peaked at 96M, mostly page cache from the files on disk, which the kernel reclaims instead of killing. The limits then went to `MemoryHigh=192M` and `MemoryMax=256M`, twice that peak. scotland's probe now alerts when heron or steller logs `Failed with result`, read from the journal over SSH, because a five-second restart slips between health checks.
+
 ## 2026-10-02: a second ask for statistics GitHub is still computing
 
 A restart of steller on the box showed what the carry-forward cannot cover: with nothing cached, a refresh got weeks for three repositories of twelve, and the next three refreshes got the same three. GitHub computes `/stats/commit_activity` and `/stats/contributors` in a few seconds once asked, then lets the result go cold again inside the fifteen minutes between refreshes for any repository nobody is pushing to, so every refresh landed on a fresh 202 for the nine quiet ones. The refresh now waits three seconds after a 202 and asks once more, for both statistics; the test fake answers 202 then 200 to prove it. Warming the nine by hand right before a refresh filled prod to all twelve, 3,294 commits for the year.

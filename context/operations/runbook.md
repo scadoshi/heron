@@ -38,6 +38,7 @@ To log more, set `RUST_LOG=info,heron=debug` in `/etc/heron/heron.env` and resta
 | 404 `repository not found` | `404 repository not found` | The repository is not in `GITHUB_REPOS`, is private, was deleted, or the name does not parse. The response does not say which, on purpose. The log does not either. Check the allowlist. |
 | 429 | nothing | One client passed 30 requests in a burst. |
 | The service will not start | `heron failed: ...` | A bad or missing variable. The message names it. |
+| A `/health` timeout for a few seconds, then fine | systemd's `heron.service: Failed with result 'oom-kill'` | heron hit `MemoryMax` and was restarted. `cat /sys/fs/cgroup/system.slice/heron.service/memory.peak` and `memory.events` show how close it runs. The 2026-10-07 entry in `../README.md` has what caused it last time. |
 
 ## Switch the cache backend
 

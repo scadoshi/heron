@@ -24,6 +24,8 @@ sudo ufw allow OpenSSH
 sudo ufw enable
 ```
 
+The box is also on the owner's tailnet as `heron`, and scotland-server's key is in root's `authorized_keys`: its probe reads heron's and steller's journals over SSH for crashes.
+
 Then the tunnel, from the Cloudflare dashboard under Networking, Tunnels:
 
 1. Create a tunnel of type Cloudflared. Choose Debian, 64-bit.
