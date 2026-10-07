@@ -23,6 +23,11 @@ use heron::{
 use std::{process::ExitCode, sync::Arc, time::Duration};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
+/// Hands freed memory back to the OS, which glibc's malloc holds in per-thread
+/// arenas after a counts measurement, keeping the process near `MemoryMax`.
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[tokio::main]
 async fn main() -> ExitCode {
     match run().await {
