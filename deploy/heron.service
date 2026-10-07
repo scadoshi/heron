@@ -33,8 +33,9 @@ TimeoutStopSec=30
 # The memory cache holds one snapshot per configured repository. A counts
 # measurement is the peak: its tarball and checkout go to disk under
 # CacheDirectory, not /tmp: PrivateTmp's /tmp is RAM charged to this limit.
-MemoryMax=128M
-MemoryHigh=96M
+# MemoryHigh is about twice the largest measurement's peak, mostly page cache.
+MemoryMax=256M
+MemoryHigh=192M
 TasksMax=256
 
 # Logs go to stdout and nowhere else. The one writable path is

@@ -11,7 +11,7 @@ heron runs on its own Hetzner box. `../architecture/hosting.md` says what else i
     - **Permissions:** none. Leave every repository and account permission unset.
     - **Expiration:** set one, and put the date in your calendar. `runbook.md` has the rotation steps.
 2. Pick the public hostname.
-3. Create the box. Ubuntu Server on the smallest plan is enough: heron's unit caps it at 128M and steller's at 256M.
+3. Create the box. Ubuntu Server on the smallest plan is enough: heron's unit and steller's each cap it at 256M.
 
 ## Setting up the box
 
