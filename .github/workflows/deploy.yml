@@ -5,12 +5,17 @@ name: Deploy
 # binaries from fixed paths, and read their logs. Nothing else. See
 # context/operations/deploy.md.
 #
-# A push to main deploys heron. steller is deployed by hand from the Actions tab,
-# since it is written by hand and it is the cache under a live service.
+# A push to main deploys heron, unless it only touches docs. steller is deployed
+# by hand from the Actions tab, since it is written by hand and it is the cache
+# under a live service.
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'context/**'
+      - 'LICENSE'
   workflow_dispatch:
     inputs:
       target:

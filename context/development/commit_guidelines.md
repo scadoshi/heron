@@ -67,4 +67,4 @@ CI builds steller from its `main` branch for this job, so a change in steller th
 
 ## Deploy
 
-Pushing to `main` deploys heron. `.github/workflows/deploy.yml` runs on every push, docs-only pushes included, and restarts the service for a few seconds after the tests and lints pass. steller deploys from the Actions tab only.
+Pushing to `main` deploys heron. `.github/workflows/deploy.yml` runs on every push except one that only touches Markdown, `context/` or `LICENSE`, and restarts the service for a few seconds after the tests and lints pass. steller deploys from the Actions tab only.
