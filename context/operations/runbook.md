@@ -1,6 +1,6 @@
 # Runbook
 
-Written before the first deploy. The commands are right for a systemd box. The symptoms are what the server does on a laptop.
+The commands are right for a systemd box. The symptoms are what the server does on a laptop.
 
 ## Is it up
 

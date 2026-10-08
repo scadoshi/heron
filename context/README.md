@@ -141,5 +141,5 @@ The first plan was to share zerver's box. The owner changed it to a Hetzner box 
 ### Not verified
 
 - `deploy/heron.service` had never been loaded by systemd. It has since; see the entry above.
-- `.github/workflows/deploy.yml` has never run.
+- `.github/workflows/deploy.yml` had never run. It has since; see the 2026-09-30 entry.
 - The live tests have not been run against real Redis, only steller.

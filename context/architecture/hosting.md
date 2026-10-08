@@ -34,5 +34,3 @@ Stats responses carry `Cache-Control: public, max-age=300`, so the edge holds ea
 ## What the portfolio does with it
 
 It reads `GET /stats` when it builds, in CI, and bakes the numbers into static HTML. The site does not call this server from the browser and keeps working when this server is down.
-
-That change is in the portfolio repo and has not been made.

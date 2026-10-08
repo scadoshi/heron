@@ -1,6 +1,6 @@
 # Deploy
 
-These steps were run on 2026-09-29, and both heron and steller came up on the first start. "From GitHub Actions" has not been run.
+These steps were run on 2026-09-29, and both heron and steller came up on the first start. "From GitHub Actions" has deployed every change since 2026-09-30.
 
 heron runs on its own Hetzner box. `../architecture/hosting.md` says what else is on it and how traffic arrives.
 
@@ -118,7 +118,7 @@ A machine that looked the hostname up before the route existed will have cached 
 
 ## From GitHub Actions
 
-`.github/workflows/deploy.yml` deploys through a self-hosted runner on the box, registered to this repo. A push to `main` deploys heron after the tests and lints pass on GitHub's runners. steller is deployed from the Actions tab, "Run workflow", choosing `steller` or `both`, since it is written by hand and it is the cache under a live service.
+`.github/workflows/deploy.yml` deploys through a self-hosted runner on the box, registered to this repo. A push to `main` deploys heron after the tests and lints pass on GitHub's runners, unless it only touches Markdown, `context/` or `LICENSE`. steller is deployed from the Actions tab, "Run workflow", choosing `steller` or `both`, since it is written by hand and it is the cache under a live service.
 
 Each deploy keeps the old binary at `/home/runner/deploy/<name>.previous` and puts it back if the new one does not answer within ten seconds. steller is skipped when its `main` is already the installed commit, recorded in `/home/runner/deploy/steller.commit`.
 

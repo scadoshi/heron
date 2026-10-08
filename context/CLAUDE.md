@@ -21,7 +21,7 @@ AI writes code in this repo and the owner reviews every line. That sets the pace
 - Work in small steps. One feature, then stop and show it.
 - Show the diff and explain it in a few lines. Do not lecture around it.
 - Verify by running the thing. A test passing is evidence; "this should work" is not.
-- Say plainly what you did not verify. The systemd unit and the deploy workflow are the standing examples.
+- Say plainly what you did not verify.
 - Keep replies short. Answer the question first.
 - When the owner questions a design, reconsider it. He is usually pointing at something real.
 
