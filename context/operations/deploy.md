@@ -15,16 +15,39 @@ heron runs on its own Hetzner box. `../architecture/hosting.md` says what else i
 
 ## Setting up the box
 
-Lock it down before anything listens:
+Lock it down before anything listens. SSH is reached over the owner's tailnet only, so join it first (as `heron`) and allow SSH on its interface alone:
 
 ```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
-sudo ufw allow OpenSSH
+sudo ufw allow in on tailscale0 to any port 22 proto tcp
 sudo ufw enable
 ```
 
-The box is also on the owner's tailnet as `heron`, and scotland-server's key is in root's `authorized_keys`: its probe reads heron's and steller's journals over SSH for crashes.
+Log in as `scadoshi`, not root. It has a sudo password and is in `systemd-journal`, so it reads the services' logs without sudo:
+
+```bash
+sudo useradd --create-home --shell /bin/bash --groups sudo,systemd-journal scadoshi
+sudo passwd scadoshi
+```
+
+Its `authorized_keys` holds the owner's keys and scotland-server's, whose probe reads heron's and steller's journals over SSH for crashes. Then `/etc/ssh/sshd_config.d/10-hardening.conf`, the same file zerver and scotland-server carry:
+
+```
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+X11Forwarding no
+
+Match Address 100.64.0.0/10,fd7a:115c:a1e0::/48
+    PasswordAuthentication yes
+
+Match all
+```
+
+Check it with `sudo sshd -t`, then `sudo systemctl reload ssh`. Keys work from anywhere the box is reachable, passwords from the tailnet only. Hetzner's web console is the way in if the tailnet is down.
 
 Then the tunnel, from the Cloudflare dashboard under Networking, Tunnels:
 

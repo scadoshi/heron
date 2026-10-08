@@ -25,7 +25,7 @@ A Cloudflare Tunnel named `heron` routes `api.scadoshi.dev` to `http://127.0.0.1
 
 The hostname is on `scadoshi.dev` and not on the portfolio's domain because heron serves `github.com/scadoshi` and is more than the portfolio's backend. `.dev` is on the HSTS preload list, so browsers refuse plain HTTP to it.
 
-`ufw` denies all inbound traffic except SSH. The tunnel is an outbound connection from the box, so it needs no open port. A request to the box's own address on port 3100 gets no answer.
+`ufw` denies all inbound traffic except SSH on the tailnet interface, so the box answers nothing on its public address. The tunnel is an outbound connection from the box, so it needs no open port. A request to the box's own address on port 3100 gets no answer.
 
 **This is not only tidiness.** The rate limiter keys on `CF-Connecting-IP`, and that header is only trustworthy when every request comes through Cloudflare. If heron were ever bound to a public interface, a client could send any value it liked and have a rate-limit bucket to itself. Keep heron on loopback behind the tunnel, or change `CfConnectingIpKeyExtractor` first.
 

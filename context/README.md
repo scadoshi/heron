@@ -19,6 +19,14 @@ Plus [`CLAUDE.md`](CLAUDE.md), the rules for working in the repo.
 
 The running log, newest first. Update it when something ships. [`progress/todo.md`](progress/todo.md) holds what is still open.
 
+## 2026-10-08: SSH over the tailnet only, as scadoshi
+
+The public SSH port took about 32,000 failed logins a day. None got in (root's password is locked and only keys were accepted), but the tailnet already reached the box, so the port had no reason to be open. ufw now allows SSH on `tailscale0` only, and the box answers nothing on its public address.
+
+Root no longer logs in. The owner logs in as `scadoshi`, which has a sudo password, and scotland-server's probe reads the journals as that user through `systemd-journal`, so a compromised scotland no longer means root here. The SSH settings are one file, `sshd_config.d/10-hardening.conf`, shared with zerver and scotland-server; `operations/deploy.md` has it.
+
+A push that only touches Markdown, `context/` or `LICENSE` no longer deploys.
+
 ## 2026-10-07: killed at its own memory limit
 
 UptimeRobot and scotland's probe each caught a `/health` timeout, at 07:20 and 07:39 UTC. The journal showed why: `heron.service: Failed with result 'oom-kill'`, at the unit's `MemoryMax=128M`, and systemd had it back in five seconds, so nothing else noticed. It had been happening several times a day since the counts sweep shipped. The box itself had 3 GB free.
