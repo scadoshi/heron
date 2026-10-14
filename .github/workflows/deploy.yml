@@ -24,7 +24,7 @@ on:
         options: [heron, steller, both]
         default: heron
 
-# One deploy at a time, and a second push waits rather than cancelling one in flight.
+# One deploy at a time, and a second push waits rather than canceling one in flight.
 concurrency:
   group: deploy
   cancel-in-progress: false
