@@ -161,7 +161,7 @@ A comment says what the code does, in the present tense, and only when the code 
 
 ## Markdown Conventions
 
-- **Do not hard-wrap prose.** One paragraph is one line; one bullet is one line.
+- Do not hard-wrap prose. One paragraph is one line; one bullet is one line.
 - Code fences, tables and indented blocks keep their own formatting.
 - No em dashes.
 - Do not write down what drifts. No test counts, no line counts, no dependency versions in prose.
