@@ -2,7 +2,9 @@
 
 My personal server. Right now it does one thing: serves GitHub stats for the projects on [scottyfermo.com](https://scottyfermo.com) as JSON. It is live at [api.scadoshi.dev](https://api.scadoshi.dev/stats).
 
-The stats are cached, and the cache can run on [steller](https://github.com/scadoshi/steller), the Redis-compatible server I wrote. For this load that is overkill. One small JSON value per repo fits in a `HashMap`, and the server runs on exactly that if you ask it to. I run it on steller because benchmarks never found steller's best bugs and running it did. On the first day it found another: steller rejects any command that does not arrive in a single read. The write-up is in [`context/architecture/decisions.md`](context/architecture/decisions.md).
+The stats are cached, and the cache can run on [steller](https://github.com/scadoshi/steller), the Redis-compatible server I wrote. For this load that is overkill: one small JSON value per repo fits in a `HashMap`, and the server runs on exactly that if you ask it to.
+
+I run it on steller because benchmarks never found steller's best bugs and running it did. On the first day it found another: steller rejects any command that does not arrive in a single read. The write-up is in [`context/architecture/decisions.md`](context/architecture/decisions.md).
 
 ## Endpoints
 
@@ -39,7 +41,11 @@ Each repository also carries `weekly_commits`, the last 52 weeks of commits as `
 
 `GET /stats` also carries `calendar`: the account's last year of contributions as the GitHub profile draws it, `{ login, total, days: [{ date, count, level }], fetched_at, stale }`, with `level` from 0 to 4. It comes from GitHub's GraphQL API, needs a token, is fresh for `CALENDAR_FRESH_SECS` (an hour) and is `null` without a token or when it could not be read and nothing is cached. `GITHUB_LOGIN` names the account; it defaults to the owner of the first allowlisted repository.
 
-`counts` is not from GitHub. A sweep downloads a tarball of each repository's default branch, counts every line of source, every test attribute and every clippy lint set to warn or deny, and throws the files away. It runs at startup and then every `COUNTS_SWEEP_SECS`, measuring a repository again only when GitHub's `pushed_at` is newer than its last measurement. `counts` is `null` until the first sweep reaches the repository. The counting lives in the `measure` crate in this workspace.
+`counts` is not from GitHub. A sweep downloads a tarball of each repository's default branch, counts every line of source, every test attribute and every clippy lint set to warn or deny, and throws the files away.
+
+- It runs at startup and then every `COUNTS_SWEEP_SECS`, measuring a repository again only when GitHub's `pushed_at` is newer than its last measurement.
+- `counts` is `null` until the first sweep reaches the repository.
+- The counting lives in the `measure` crate in this workspace.
 
 Only repos on the allowlist are served, and a private one is refused even if it is listed.
 

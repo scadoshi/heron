@@ -42,7 +42,9 @@ heron and steller run on a Hetzner box of their own.
 
 steller answers `ERR missing crlf terminator` to any command that does not arrive in a single read. `Frame::parse_bulk_string` reports a payload that has not all arrived as `MissingTerminator`, a hard error, where `Incomplete` would make the session read more. The session clears its buffer, the rest of the command arrives, and steller parses it as new commands and answers each with an error.
 
-The session reads 1024 bytes at a time, so a command longer than that always fails. That is how it was first seen, and it was first written up here as a limit on size. It is not one. A command of any length fails when the network or the sender splits it. On the production box, a `PING` sent by bash's `printf`, which writes a line at a time, was rejected on the first try and answered on the second.
+The session reads 1024 bytes at a time, so a command longer than that always fails. That is how it was first seen, and it was first written up here as a limit on size.
+
+It is not one. A command of any length fails when the network or the sender splits it. On the production box, a `PING` sent by bash's `printf`, which writes a line at a time, was rejected on the first try and answered on the second.
 
 Reproduce the size case with `redis-cli`:
 
@@ -52,13 +54,23 @@ head -c 1000 /dev/zero | tr '\0' 'x' | redis-cli -p 3000 -x SET k
 
 or with `a_value_larger_than_one_read_round_trips` in `tests/live_steller.rs`. Reproduce the split case by writing a command in two parts with a pause between them.
 
-**Decided here:** the client closes its connection after any error reply. After a rejection the connection holds replies to commands that were never sent, and keeping it would hand one of them to the next command as its answer. Against Redis this costs a reconnect after an error that would have been harmless. That is cheap, and error replies are rare.
+**Decided here:** the client closes its connection after any error reply. After a rejection the connection holds replies to commands that were never sent, and keeping it would hand one of them to the next command as its answer.
+
+Against Redis this costs a reconnect after an error that would have been harmless. That is cheap, and error replies are rare.
 
 **Not decided here:** the client does not refuse large values or split them. That would write steller's bug into this codebase, and the adapter also has to work against Redis.
 
-**Exposure:** this client sends each command with one write, over loopback, so a command under 1024 bytes arrives whole in practice. The largest snapshot measured is 517 bytes and each language adds about 35, so a repository with around twenty languages would cross the line. Under `CACHE_BACKEND=steller` a rejected write means that repository never caches. Under `layered` the memory layer holds it and nothing is lost, which is why production runs `layered`.
+**Exposure:** this client sends each command with one write, over loopback, so a command under 1024 bytes arrives whole in practice.
 
-**Fixed in steller at 8dfbcf1, 2026-09-30.** `parse_bulk_string` now answers `Incomplete` while a payload or its terminator is still arriving. Verified on the production box: a `PING` sent in three pieces and a 256 KB `SET` both answer. The reproduction now lives in `tests/live_steller.rs` as `a_value_larger_than_one_read_round_trips`. The client keeps closing its connection after an error reply, since the reasoning holds for any server.
+- The largest snapshot measured is 517 bytes, and each language adds about 35, so a repository with around twenty languages would cross the line.
+- Under `CACHE_BACKEND=steller`, a rejected write means that repository never caches.
+- Under `layered`, the memory layer holds it and nothing is lost, which is why production runs `layered`.
+
+**Fixed in steller at 8dfbcf1, 2026-09-30.** `parse_bulk_string` now answers `Incomplete` while a payload or its terminator is still arriving.
+
+- Verified on the production box: a `PING` sent in three pieces and a 256 KB `SET` both answer.
+- The reproduction now lives in `tests/live_steller.rs` as `a_value_larger_than_one_read_round_trips`.
+- The client keeps closing its connection after an error reply, since the reasoning holds for any server.
 
 ---
 
