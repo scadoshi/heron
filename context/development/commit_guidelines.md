@@ -28,6 +28,7 @@ cargo +nightly fmt        # not `cargo fmt`; stable can't apply the unstable rul
 
 ```bash
 cargo clippy --all-targets --locked -- -D warnings
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --locked   # rustdoc warnings fail CI's lint job the way clippy's do
 ```
 
 Lint levels live in `Cargo.toml` under `[lints.clippy]`. The panic family (`unwrap`, `expect`, `panic`, indexing, slicing) is denied outside tests, and `clippy.toml` allows it inside them.
