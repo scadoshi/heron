@@ -1,23 +1,22 @@
 //! Paths and the routes behind them.
 
-use crate::inbound::http::{
-    AppState,
-    handlers::{
-        health::{is_cache_running, is_server_running, root},
-        stats::{get_portfolio_stats::get_portfolio_stats, get_repo_stats::get_repo_stats},
-    },
-    middleware::CfConnectingIpKeyExtractor,
-};
-use anyhow::Context;
-use axum::{
-    Router,
-    body::Body,
-    http::{HeaderMap, HeaderValue, Response, StatusCode, header},
-    routing::get,
-};
 use std::sync::Arc;
-use tower_governor::{GovernorLayer, errors::GovernorError, governor::GovernorConfigBuilder};
+
+use anyhow::Context;
+use axum::Router;
+use axum::body::Body;
+use axum::http::{HeaderMap, HeaderValue, Response, StatusCode, header};
+use axum::routing::get;
+use tower_governor::GovernorLayer;
+use tower_governor::errors::GovernorError;
+use tower_governor::governor::GovernorConfigBuilder;
 use tower_http::set_header::SetResponseHeaderLayer;
+
+use crate::inbound::http::AppState;
+use crate::inbound::http::handlers::health::{is_cache_running, is_server_running, root};
+use crate::inbound::http::handlers::stats::get_portfolio_stats::get_portfolio_stats;
+use crate::inbound::http::handlers::stats::get_repo_stats::get_repo_stats;
+use crate::inbound::http::middleware::CfConnectingIpKeyExtractor;
 
 // == paths ==
 

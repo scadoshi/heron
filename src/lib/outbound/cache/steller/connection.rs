@@ -1,13 +1,14 @@
 //! One TCP connection to the server, and a request and reply over it.
 
-use crate::outbound::cache::steller::resp::{self, Reply, RespError};
-use std::{net::SocketAddr, time::Duration};
+use std::net::SocketAddr;
+use std::time::Duration;
+
 use thiserror::Error;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
-    time::timeout,
-};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
+use tokio::time::timeout;
+
+use crate::outbound::cache::steller::resp::{self, Reply, RespError};
 
 /// Why a command got no reply.
 #[derive(Debug, Error)]

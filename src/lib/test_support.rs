@@ -5,33 +5,23 @@
 // the test worth panicking on.
 #![allow(missing_docs, clippy::arithmetic_side_effects)]
 
-use crate::domain::{
-    calendar::{
-        models::{Calendar, CalendarError, Day},
-        ports::CalendarSource,
-    },
-    clock::Clock,
-    counts::{
-        models::{Counts, CountsError, Language as CountsLanguage},
-        ports::CountsSource,
-    },
-    stats::{
-        models::{
-            cache_key::CacheKey,
-            errors::{CacheError, StatsError},
-            repo_name::RepoName,
-            repo_stats::{Language, RepoStats, WeekCommits},
-        },
-        ports::{StatsCache, StatsSource},
-    },
-};
+use std::collections::HashMap;
+use std::future::{Future, ready};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
 use chrono::{DateTime, NaiveDate, TimeDelta, TimeZone, Utc};
-use std::{
-    collections::HashMap,
-    future::{Future, ready},
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+
+use crate::domain::calendar::models::{Calendar, CalendarError, Day};
+use crate::domain::calendar::ports::CalendarSource;
+use crate::domain::clock::Clock;
+use crate::domain::counts::models::{Counts, CountsError, Language as CountsLanguage};
+use crate::domain::counts::ports::CountsSource;
+use crate::domain::stats::models::cache_key::CacheKey;
+use crate::domain::stats::models::errors::{CacheError, StatsError};
+use crate::domain::stats::models::repo_name::RepoName;
+use crate::domain::stats::models::repo_stats::{Language, RepoStats, WeekCommits};
+use crate::domain::stats::ports::{StatsCache, StatsSource};
 
 /// Parses a repository name known to be valid.
 pub fn repo(raw: &str) -> RepoName {

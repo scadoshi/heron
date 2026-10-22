@@ -3,10 +3,15 @@
 //! Everything is checked before the server binds. A bad value stops the process with
 //! an error naming the variable.
 
-use crate::domain::{secret::Secret, stats::models::repo_name::RepoName};
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::time::Duration;
+
 use anyhow::{Context, anyhow, bail};
 use axum::http::HeaderValue;
-use std::{net::SocketAddr, path::PathBuf, time::Duration};
+
+use crate::domain::secret::Secret;
+use crate::domain::stats::models::repo_name::RepoName;
 
 /// Address to bind the HTTP server to.
 const BIND_ADDRESS_KEY: &str = "BIND_ADDRESS";
@@ -279,8 +284,9 @@ fn seconds(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::HashMap;
+
+    use super::*;
 
     const REQUIRED: [(&str, &str); 3] = [
         ("BIND_ADDRESS", "127.0.0.1:3100"),

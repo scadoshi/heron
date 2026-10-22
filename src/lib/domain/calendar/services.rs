@@ -1,17 +1,15 @@
-use crate::domain::{
-    calendar::{
-        models::{Calendar, CalendarError, CalendarReport},
-        ports::{CalendarService, CalendarSource},
-    },
-    clock::Clock,
-    stats::{
-        models::{cache_key::CacheKey, snapshot::Snapshot},
-        ports::StatsCache,
-    },
-};
+use std::sync::Arc;
+use std::time::Duration;
+
 use chrono::TimeDelta;
-use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
+
+use crate::domain::calendar::models::{Calendar, CalendarError, CalendarReport};
+use crate::domain::calendar::ports::{CalendarService, CalendarSource};
+use crate::domain::clock::Clock;
+use crate::domain::stats::models::cache_key::CacheKey;
+use crate::domain::stats::models::snapshot::Snapshot;
+use crate::domain::stats::ports::StatsCache;
 
 /// Whose calendar, and for how long it is served.
 #[derive(Debug, Clone)]

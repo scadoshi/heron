@@ -1,17 +1,16 @@
-use crate::domain::{
-    clock::Clock,
-    counts::{
-        models::{Counts, CountsReport, Sweep},
-        ports::{CountsService, CountsSource},
-    },
-    stats::{
-        models::{cache_key::CacheKey, repo_name::RepoName, snapshot::Snapshot},
-        ports::{StatsCache, StatsService},
-    },
-};
+use std::sync::Arc;
+use std::time::Duration;
+
 use chrono::{DateTime, TimeDelta, Utc};
-use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
+
+use crate::domain::clock::Clock;
+use crate::domain::counts::models::{Counts, CountsReport, Sweep};
+use crate::domain::counts::ports::{CountsService, CountsSource};
+use crate::domain::stats::models::cache_key::CacheKey;
+use crate::domain::stats::models::repo_name::RepoName;
+use crate::domain::stats::models::snapshot::Snapshot;
+use crate::domain::stats::ports::{StatsCache, StatsService};
 
 /// What the service measures and how long the cache keeps a measurement.
 #[derive(Debug, Clone)]
@@ -163,12 +162,11 @@ impl<S: CountsSource, C: StatsCache, T: StatsService, K: Clock> CountsService
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        domain::stats,
-        test_support::{FakeCache, FakeClock, FakeCountsSource, FakeSource, repo},
-    };
     use chrono::TimeZone;
+
+    use super::*;
+    use crate::domain::stats;
+    use crate::test_support::{FakeCache, FakeClock, FakeCountsSource, FakeSource, repo};
 
     type Stats = stats::services::Service<FakeSource, FakeCache, FakeClock>;
     type Counting = Service<FakeCountsSource, FakeCache, Stats, FakeClock>;

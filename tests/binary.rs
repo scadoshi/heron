@@ -8,23 +8,19 @@
     clippy::indexing_slicing
 )]
 
-use axum::{Json, Router, routing::get};
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::process::{ExitStatus, Stdio};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::time::{Duration, Instant};
+
+use axum::routing::get;
+use axum::{Json, Router};
 use serde_json::{Value, json};
-use std::{
-    net::SocketAddr,
-    path::PathBuf,
-    process::{ExitStatus, Stdio},
-    sync::{
-        Arc,
-        atomic::{AtomicU32, Ordering},
-    },
-    time::{Duration, Instant},
-};
-use tokio::{
-    io::AsyncReadExt,
-    net::TcpListener,
-    process::{Child, Command},
-};
+use tokio::io::AsyncReadExt;
+use tokio::net::TcpListener;
+use tokio::process::{Child, Command};
 
 /// A port nothing is listening on.
 async fn free_address() -> SocketAddr {

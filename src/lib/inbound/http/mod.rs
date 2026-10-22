@@ -9,33 +9,29 @@ pub mod middleware;
 /// Paths and the routes behind them.
 pub mod routes;
 
-use crate::domain::{
-    calendar::ports::ErasedCalendarService,
-    counts::ports::ErasedCountsService,
-    health::ports::ErasedHealthService,
-    stats::{
-        models::{errors::StatsError, repo_name::InvalidRepoName},
-        ports::ErasedStatsService,
-    },
-};
+use std::sync::Arc;
+use std::time::Duration;
+
 use anyhow::Context;
-use axum::{
-    extract::Request,
-    http::{HeaderValue, Method, StatusCode, header},
-    middleware::Next,
-    response::{IntoResponse, Response},
-};
-use std::{sync::Arc, time::Duration};
+use axum::extract::Request;
+use axum::http::{HeaderValue, Method, StatusCode, header};
+use axum::middleware::Next;
+use axum::response::{IntoResponse, Response};
 use thiserror::Error;
 use tokio::net;
-use tower_http::{
-    catch_panic::CatchPanicLayer,
-    compression::CompressionLayer,
-    cors::{AllowOrigin, CorsLayer},
-    limit::RequestBodyLimitLayer,
-    request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
-    timeout::TimeoutLayer,
-};
+use tower_http::catch_panic::CatchPanicLayer;
+use tower_http::compression::CompressionLayer;
+use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::limit::RequestBodyLimitLayer;
+use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
+use tower_http::timeout::TimeoutLayer;
+
+use crate::domain::calendar::ports::ErasedCalendarService;
+use crate::domain::counts::ports::ErasedCountsService;
+use crate::domain::health::ports::ErasedHealthService;
+use crate::domain::stats::models::errors::StatsError;
+use crate::domain::stats::models::repo_name::InvalidRepoName;
+use crate::domain::stats::ports::ErasedStatsService;
 
 // == error ==
 
@@ -292,9 +288,10 @@ async fn shutdown_signal() {
 
 #[cfg(test)]
 mod tests {
+    use http_body_util::BodyExt;
+
     use super::*;
     use crate::test_support::repo;
-    use http_body_util::BodyExt;
 
     async fn body_of(error: ApiError) -> (StatusCode, String) {
         let response = error.into_response();

@@ -1,6 +1,7 @@
-use crate::domain::stats::models::repo_name::RepoName;
 use chrono::{DateTime, Utc};
 use thiserror::Error;
+
+use crate::domain::stats::models::repo_name::RepoName;
 
 /// Why stats could not be served.
 ///

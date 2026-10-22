@@ -1,11 +1,10 @@
 //! Port traits for the calendar: where it comes from, and the service the HTTP
 //! layer calls.
 
-use crate::domain::{
-    BoxFuture,
-    calendar::models::{Calendar, CalendarError, CalendarReport},
-};
 use std::future::Future;
+
+use crate::domain::BoxFuture;
+use crate::domain::calendar::models::{Calendar, CalendarError, CalendarReport};
 
 /// Where the calendar is read from.
 pub trait CalendarSource: Clone + Send + Sync + 'static {

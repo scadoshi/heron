@@ -1,8 +1,9 @@
-use crate::{
-    domain::calendar::models::CalendarError,
-    inbound::http::{ApiError, AppState, contracts::stats::HttpPortfolioStats},
-};
-use axum::{Json, extract::State};
+use axum::Json;
+use axum::extract::State;
+
+use crate::domain::calendar::models::CalendarError;
+use crate::inbound::http::contracts::stats::HttpPortfolioStats;
+use crate::inbound::http::{ApiError, AppState};
 
 /// Stats for every configured repository, each with its latest source counts,
 /// and the account's contribution calendar. The calendar cannot fail the

@@ -1,8 +1,8 @@
-use crate::inbound::http::{
-    AppState,
-    contracts::health::{HttpCacheHealth, HttpHealth, HttpRoot},
-};
-use axum::{Json, extract::State};
+use axum::Json;
+use axum::extract::State;
+
+use crate::inbound::http::AppState;
+use crate::inbound::http::contracts::health::{HttpCacheHealth, HttpHealth, HttpRoot};
 
 /// Package name, version, and status.
 pub async fn root() -> Json<HttpRoot> {

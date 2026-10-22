@@ -1,11 +1,9 @@
-use crate::{
-    domain::stats::models::repo_name::RepoName,
-    inbound::http::{ApiError, AppState, contracts::stats::HttpRepoStats},
-};
-use axum::{
-    Json,
-    extract::{Path, State},
-};
+use axum::Json;
+use axum::extract::{Path, State};
+
+use crate::domain::stats::models::repo_name::RepoName;
+use crate::inbound::http::contracts::stats::HttpRepoStats;
+use crate::inbound::http::{ApiError, AppState};
 
 /// Stats for one configured repository, with its latest source counts.
 pub async fn get_repo_stats(

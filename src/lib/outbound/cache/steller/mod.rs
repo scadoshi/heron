@@ -9,15 +9,18 @@ pub mod connection;
 /// The wire codec.
 pub mod resp;
 
-use crate::domain::stats::{
-    models::{cache_key::CacheKey, errors::CacheError},
-    ports::StatsCache,
-};
+use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::Duration;
+
 use connection::{Connection, ConnectionError};
 use resp::Reply;
-use std::{net::SocketAddr, sync::Arc, time::Duration};
 use thiserror::Error;
 use tokio::sync::Mutex;
+
+use crate::domain::stats::models::cache_key::CacheKey;
+use crate::domain::stats::models::errors::CacheError;
+use crate::domain::stats::ports::StatsCache;
 
 /// Deadline for connecting, and separately for each command and its reply.
 const DEADLINE: Duration = Duration::from_millis(500);
@@ -148,17 +151,15 @@ mod tests {
     // not reach, since its helpers are not marked `#[test]`.
     #![allow(clippy::arithmetic_side_effects)]
 
+    use std::collections::HashMap;
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::time::Instant;
+
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::{TcpListener, TcpStream};
+
     use super::*;
     use crate::test_support::repo;
-    use std::{
-        collections::HashMap,
-        sync::atomic::{AtomicU32, Ordering},
-        time::Instant,
-    };
-    use tokio::{
-        io::{AsyncReadExt, AsyncWriteExt},
-        net::{TcpListener, TcpStream},
-    };
 
     fn key() -> CacheKey {
         CacheKey::for_repo(&repo("a/b"))

@@ -1,15 +1,13 @@
 //! In-process cache.
 
-use crate::domain::stats::{
-    models::{cache_key::CacheKey, errors::CacheError},
-    ports::StatsCache,
-};
-use std::{
-    collections::HashMap,
-    future::{Future, ready},
-    sync::{Arc, Mutex, MutexGuard, PoisonError},
-    time::{Duration, Instant},
-};
+use std::collections::HashMap;
+use std::future::{Future, ready};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::time::{Duration, Instant};
+
+use crate::domain::stats::models::cache_key::CacheKey;
+use crate::domain::stats::models::errors::CacheError;
+use crate::domain::stats::ports::StatsCache;
 
 /// Bytes and the instant they expire, by key.
 type Entries = HashMap<String, (Instant, Vec<u8>)>;

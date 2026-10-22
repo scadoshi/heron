@@ -1,6 +1,7 @@
-use crate::domain::stats::models::repo_name::RepoName;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::domain::stats::models::repo_name::RepoName;
 
 /// Bytes of one language in a repository, as GitHub's linguist counts them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

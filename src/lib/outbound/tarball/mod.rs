@@ -8,25 +8,21 @@
 #[cfg(test)]
 mod tests;
 
-use crate::domain::{
-    counts::{
-        models::{Counts, CountsError},
-        ports::CountsSource,
-    },
-    secret::Secret,
-    stats::models::repo_name::RepoName,
-};
+use std::fs;
+use std::io::{self, BufReader};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
+
 use anyhow::Context;
 use flate2::read::GzDecoder;
 use reqwest::header::{ACCEPT, HeaderMap, HeaderValue};
-use std::{
-    fs,
-    io::{self, BufReader},
-    path::{Path, PathBuf},
-    sync::atomic::{AtomicU64, Ordering},
-    time::Duration,
-};
 use tokio::io::AsyncWriteExt;
+
+use crate::domain::counts::models::{Counts, CountsError};
+use crate::domain::counts::ports::CountsSource;
+use crate::domain::secret::Secret;
+use crate::domain::stats::models::repo_name::RepoName;
 
 /// GitHub rejects a request that carries no `User-Agent`.
 const USER_AGENT: &str = "heron (+https://github.com/scadoshi/heron)";

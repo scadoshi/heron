@@ -8,29 +8,23 @@
 /// Parsing of the `Link` response header.
 pub mod link;
 
-use crate::domain::{
-    calendar::{
-        models::{Calendar, CalendarError, Day},
-        ports::CalendarSource,
-    },
-    secret::Secret,
-    stats::{
-        models::{
-            errors::StatsError,
-            repo_name::RepoName,
-            repo_stats::{Language, RepoStats, WeekCommits},
-        },
-        ports::StatsSource,
-    },
-};
+use std::collections::HashMap;
+use std::time::Duration;
+
 use chrono::{DateTime, Utc};
-use reqwest::{
-    Response, StatusCode,
-    header::{ACCEPT, HeaderMap, HeaderValue, LINK, RETRY_AFTER},
-};
-use serde::{Deserialize, de::IgnoredAny};
-use std::{collections::HashMap, time::Duration};
+use reqwest::header::{ACCEPT, HeaderMap, HeaderValue, LINK, RETRY_AFTER};
+use reqwest::{Response, StatusCode};
+use serde::Deserialize;
+use serde::de::IgnoredAny;
 use thiserror::Error;
+
+use crate::domain::calendar::models::{Calendar, CalendarError, Day};
+use crate::domain::calendar::ports::CalendarSource;
+use crate::domain::secret::Secret;
+use crate::domain::stats::models::errors::StatsError;
+use crate::domain::stats::models::repo_name::RepoName;
+use crate::domain::stats::models::repo_stats::{Language, RepoStats, WeekCommits};
+use crate::domain::stats::ports::StatsSource;
 
 /// GitHub rejects a request that carries no `User-Agent`.
 const USER_AGENT: &str = "heron (+https://github.com/scadoshi/heron)";

@@ -1,17 +1,18 @@
 //! The adapter against an in-process fake of GitHub's tarball endpoint.
 
+use std::sync::{Arc, Mutex};
+
+use axum::Router;
+use axum::extract::{Request, State};
+use axum::http::{StatusCode as AxumStatus, header};
+use axum::response::{IntoResponse, Response as AxumResponse};
+use axum::routing::get;
+use flate2::Compression;
+use flate2::write::GzEncoder;
+use measure::Language;
+
 use super::*;
 use crate::test_support::repo;
-use axum::{
-    Router,
-    extract::{Request, State},
-    http::{StatusCode as AxumStatus, header},
-    response::{IntoResponse, Response as AxumResponse},
-    routing::get,
-};
-use flate2::{Compression, write::GzEncoder};
-use measure::Language;
-use std::sync::{Arc, Mutex};
 
 const TOKEN: &str = "ghp_a-token-that-must-never-be-printed";
 

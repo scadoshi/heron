@@ -1,16 +1,12 @@
 //! Two caches stacked.
 
-use crate::domain::stats::{
-    models::{cache_key::CacheKey, errors::CacheError},
-    ports::StatsCache,
-};
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    time::Duration,
-};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
+
+use crate::domain::stats::models::cache_key::CacheKey;
+use crate::domain::stats::models::errors::CacheError;
+use crate::domain::stats::ports::StatsCache;
 
 /// A primary cache with a secondary behind it.
 ///

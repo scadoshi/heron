@@ -15,54 +15,37 @@
     clippy::arithmetic_side_effects
 )]
 
-use axum::{
-    Router,
-    body::Body,
-    extract::ConnectInfo,
-    http::{HeaderMap, HeaderValue, Request, StatusCode},
-};
+use std::collections::HashMap;
+use std::future::{Future, ready};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use axum::Router;
+use axum::body::Body;
+use axum::extract::ConnectInfo;
+use axum::http::{HeaderMap, HeaderValue, Request, StatusCode};
 use chrono::{DateTime, NaiveDate, TimeDelta, TimeZone, Utc};
-use heron::{
-    domain::{
-        calendar::{
-            self,
-            models::{Calendar, CalendarError, Day},
-            ports::{CalendarSource, ErasedCalendarService},
-        },
-        clock::Clock,
-        counts::{
-            self,
-            models::{Counts, CountsError, Language as CountsLanguage},
-            ports::{CountsSource, ErasedCountsService},
-        },
-        health,
-        stats::{
-            self,
-            models::{
-                cache_key::CacheKey,
-                errors::{CacheError, StatsError},
-                repo_name::RepoName,
-                repo_stats::{Language, RepoStats, WeekCommits},
-            },
-            ports::{StatsCache, StatsSource},
-            services::Settings,
-        },
-    },
-    inbound::http::{AppState, build_router},
-    outbound::cache::memory::MemoryCache,
-};
+use heron::domain::calendar::models::{Calendar, CalendarError, Day};
+use heron::domain::calendar::ports::{CalendarSource, ErasedCalendarService};
+use heron::domain::calendar::{self};
+use heron::domain::clock::Clock;
+use heron::domain::counts::models::{Counts, CountsError, Language as CountsLanguage};
+use heron::domain::counts::ports::{CountsSource, ErasedCountsService};
+use heron::domain::counts::{self};
+use heron::domain::health;
+use heron::domain::stats::models::cache_key::CacheKey;
+use heron::domain::stats::models::errors::{CacheError, StatsError};
+use heron::domain::stats::models::repo_name::RepoName;
+use heron::domain::stats::models::repo_stats::{Language, RepoStats, WeekCommits};
+use heron::domain::stats::ports::{StatsCache, StatsSource};
+use heron::domain::stats::services::Settings;
+use heron::domain::stats::{self};
+use heron::inbound::http::{AppState, build_router};
+use heron::outbound::cache::memory::MemoryCache;
 use http_body_util::BodyExt;
 use serde_json::Value;
-use std::{
-    collections::HashMap,
-    future::{Future, ready},
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicU32, Ordering},
-    },
-    time::Duration,
-};
 use tower::ServiceExt;
 
 pub const ALLOWED_ORIGIN: &str = "https://scottyfermo.com";

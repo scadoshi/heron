@@ -15,19 +15,14 @@
 
 mod common;
 
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
 use common::{StubSource, TestClock, repo};
-use heron::{
-    domain::stats::{
-        models::cache_key::CacheKey,
-        ports::{StatsCache, StatsService},
-        services::{Service, Settings},
-    },
-    outbound::cache::steller::StellerCache,
-};
-use std::{
-    sync::atomic::{AtomicU32, Ordering},
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use heron::domain::stats::models::cache_key::CacheKey;
+use heron::domain::stats::ports::{StatsCache, StatsService};
+use heron::domain::stats::services::{Service, Settings};
+use heron::outbound::cache::steller::StellerCache;
 
 fn steller() -> StellerCache {
     let address = std::env::var("STELLER_ADDRESS").unwrap_or_else(|_| "127.0.0.1:3000".into());
@@ -121,7 +116,7 @@ async fn the_key_is_gone_after_its_window() {
 async fn a_snapshot_sized_value_round_trips() {
     let cache = steller();
     let key = unique_key();
-    let value = vec![0xAB; 600];
+    let value = vec![0xab; 600];
     cache
         .set(&key, &value, Duration::from_secs(5))
         .await
@@ -135,7 +130,7 @@ async fn a_value_larger_than_one_read_round_trips() {
     let cache = steller();
     let key = unique_key();
     for size in [1000, 4096, 256 * 1024] {
-        let value = vec![0xAB; size];
+        let value = vec![0xab; size];
         cache
             .set(&key, &value, Duration::from_secs(5))
             .await

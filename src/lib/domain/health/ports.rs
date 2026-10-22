@@ -1,7 +1,9 @@
 //! Port traits for health checks.
 
-use crate::domain::{BoxFuture, health::models::HealthCheckFailed};
 use std::future::Future;
+
+use crate::domain::BoxFuture;
+use crate::domain::health::models::HealthCheckFailed;
 
 /// Service port for health checks.
 pub trait HealthService: Clone + Send + Sync + 'static {

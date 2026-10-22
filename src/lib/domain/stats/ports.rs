@@ -1,17 +1,15 @@
 //! Port traits for stats: where the numbers come from, where they are cached, and the
 //! service the HTTP layer calls.
 
-use crate::domain::{
-    BoxFuture,
-    stats::models::{
-        cache_key::CacheKey,
-        errors::{CacheError, StatsError},
-        portfolio_stats::PortfolioStats,
-        repo_name::RepoName,
-        repo_stats::{RepoReport, RepoStats},
-    },
-};
-use std::{future::Future, time::Duration};
+use std::future::Future;
+use std::time::Duration;
+
+use crate::domain::BoxFuture;
+use crate::domain::stats::models::cache_key::CacheKey;
+use crate::domain::stats::models::errors::{CacheError, StatsError};
+use crate::domain::stats::models::portfolio_stats::PortfolioStats;
+use crate::domain::stats::models::repo_name::RepoName;
+use crate::domain::stats::models::repo_stats::{RepoReport, RepoStats};
 
 /// Where stats are read from.
 pub trait StatsSource: Clone + Send + Sync + 'static {

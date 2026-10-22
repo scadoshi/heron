@@ -6,8 +6,10 @@
 
 #![warn(missing_docs)]
 
+use std::path::Path;
+use std::{fs, io};
+
 use serde::{Deserialize, Serialize};
-use std::{fs, io, path::Path};
 
 /// The language a repository is written in, decided by what sits at its root.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -163,8 +165,9 @@ fn clippy_lints(cargo_toml: &str) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::PathBuf;
+
+    use super::*;
 
     /// A throwaway directory under the system temp dir, removed on drop.
     struct Checkout(PathBuf);

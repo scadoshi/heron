@@ -1,14 +1,11 @@
-use super::rfc3339;
-use crate::domain::{
-    calendar::models::{CalendarReport, Day},
-    counts::models::CountsReport,
-    stats::models::{
-        portfolio_stats::{PortfolioStats, Totals},
-        repo_stats::{Language, RepoReport, WeekCommits},
-    },
-};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
+
+use super::rfc3339;
+use crate::domain::calendar::models::{CalendarReport, Day};
+use crate::domain::counts::models::CountsReport;
+use crate::domain::stats::models::portfolio_stats::{PortfolioStats, Totals};
+use crate::domain::stats::models::repo_stats::{Language, RepoReport, WeekCommits};
 
 /// One language of a repository.
 #[derive(Debug, Serialize)]

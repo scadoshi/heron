@@ -1,20 +1,19 @@
-use crate::domain::{
-    clock::Clock,
-    stats::{
-        models::{
-            cache_key::CacheKey,
-            errors::StatsError,
-            portfolio_stats::{PortfolioStats, Totals},
-            repo_name::RepoName,
-            repo_stats::{RepoReport, RepoStats},
-            snapshot::Snapshot,
-        },
-        ports::{StatsCache, StatsService, StatsSource},
-    },
-};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+
 use chrono::TimeDelta;
-use std::{collections::HashMap, sync::Arc, time::Duration};
-use tokio::{sync::Mutex, task::JoinSet};
+use tokio::sync::Mutex;
+use tokio::task::JoinSet;
+
+use crate::domain::clock::Clock;
+use crate::domain::stats::models::cache_key::CacheKey;
+use crate::domain::stats::models::errors::StatsError;
+use crate::domain::stats::models::portfolio_stats::{PortfolioStats, Totals};
+use crate::domain::stats::models::repo_name::RepoName;
+use crate::domain::stats::models::repo_stats::{RepoReport, RepoStats};
+use crate::domain::stats::models::snapshot::Snapshot;
+use crate::domain::stats::ports::{StatsCache, StatsService, StatsSource};
 
 /// What the service is allowed to serve and for how long.
 #[derive(Debug, Clone)]

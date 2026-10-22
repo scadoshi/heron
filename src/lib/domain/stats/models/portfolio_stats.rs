@@ -1,10 +1,9 @@
-use crate::domain::stats::models::{
-    repo_name::RepoName,
-    repo_stats::{RepoReport, WeekCommits},
-};
 #[cfg(test)]
 use chrono::Datelike;
 use chrono::{DateTime, Utc};
+
+use crate::domain::stats::models::repo_name::RepoName;
+use crate::domain::stats::models::repo_stats::{RepoReport, WeekCommits};
 
 /// Sums across the repositories that resolved.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -72,9 +71,10 @@ pub struct PortfolioStats {
 
 #[cfg(test)]
 mod tests {
+    use chrono::TimeZone;
+
     use super::*;
     use crate::test_support::{repo, stats_for};
-    use chrono::TimeZone;
 
     #[test]
     fn weekly_commits_are_summed_by_position_from_the_newest() {

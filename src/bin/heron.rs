@@ -1,27 +1,29 @@
 //! Composition root. Wires adapters into services and starts the HTTP server.
 
-use heron::{
-    config::{CacheBackend, Config},
-    domain::{
-        calendar::{self, ports::ErasedCalendarService},
-        counts::{self, ports::ErasedCountsService},
-        health::{self, ports::ErasedHealthService},
-        stats::{
-            self,
-            ports::{ErasedStatsService, StatsCache},
-            services::Settings,
-        },
-    },
-    inbound::http::{HttpServer, HttpServerConfig},
-    outbound::{
-        cache::{layered::LayeredCache, memory::MemoryCache, steller::StellerCache},
-        clock::SystemClock,
-        github::GitHub,
-        tarball::Tarball,
-    },
-};
-use std::{process::ExitCode, sync::Arc, time::Duration};
-use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+use std::process::ExitCode;
+use std::sync::Arc;
+use std::time::Duration;
+
+use heron::config::{CacheBackend, Config};
+use heron::domain::calendar::ports::ErasedCalendarService;
+use heron::domain::calendar::{self};
+use heron::domain::counts::ports::ErasedCountsService;
+use heron::domain::counts::{self};
+use heron::domain::health::ports::ErasedHealthService;
+use heron::domain::health::{self};
+use heron::domain::stats::ports::{ErasedStatsService, StatsCache};
+use heron::domain::stats::services::Settings;
+use heron::domain::stats::{self};
+use heron::inbound::http::{HttpServer, HttpServerConfig};
+use heron::outbound::cache::layered::LayeredCache;
+use heron::outbound::cache::memory::MemoryCache;
+use heron::outbound::cache::steller::StellerCache;
+use heron::outbound::clock::SystemClock;
+use heron::outbound::github::GitHub;
+use heron::outbound::tarball::Tarball;
+use tracing_subscriber::EnvFilter;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 /// Hands freed memory back to the OS, which glibc's malloc holds in per-thread
 /// arenas after a counts measurement, keeping the process near `MemoryMax`.

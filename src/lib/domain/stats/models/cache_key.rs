@@ -1,5 +1,6 @@
-use crate::domain::stats::models::repo_name::RepoName;
 use std::ops::Deref;
+
+use crate::domain::stats::models::repo_name::RepoName;
 
 /// Version of the cached payload's shape. Bump it when [`Snapshot`] or [`RepoStats`]
 /// changes, so a payload written by an older build is a miss and not a parse error.

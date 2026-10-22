@@ -22,8 +22,9 @@ impl<T> Snapshot<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::TimeDelta;
+
+    use super::*;
 
     #[test]
     fn fresh_before_the_deadline_and_stale_from_it() {

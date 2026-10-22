@@ -1,8 +1,10 @@
 //! Rate-limit key extraction.
 
-use axum::extract::ConnectInfo;
 use std::net::{IpAddr, SocketAddr};
-use tower_governor::{GovernorError, key_extractor::KeyExtractor};
+
+use axum::extract::ConnectInfo;
+use tower_governor::GovernorError;
+use tower_governor::key_extractor::KeyExtractor;
 
 /// Header Cloudflare sets to the client's address.
 const CF_CONNECTING_IP: &str = "cf-connecting-ip";
@@ -41,8 +43,9 @@ impl KeyExtractor for CfConnectingIpKeyExtractor {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::net::Ipv4Addr;
+
+    use super::*;
 
     fn peer(ip: [u8; 4]) -> ConnectInfo<SocketAddr> {
         ConnectInfo(SocketAddr::new(IpAddr::V4(Ipv4Addr::from(ip)), 40000))

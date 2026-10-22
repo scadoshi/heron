@@ -1,7 +1,8 @@
 //! The system clock.
 
-use crate::domain::clock::Clock;
 use chrono::{DateTime, Utc};
+
+use crate::domain::clock::Clock;
 
 /// Reads the operating system's clock.
 #[derive(Debug, Clone, Copy, Default)]

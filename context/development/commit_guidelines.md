@@ -18,10 +18,10 @@
 
 ### 1. Format with nightly
 
-`rustfmt.toml` enables `imports_granularity = "Crate"`, an unstable option, so stable `cargo fmt` silently skips it: the code looks formatted locally and fails CI.
+`rustfmt.toml` enables four unstable options: `imports_granularity = "Module"` (one `use` line per module), `group_imports = "StdExternalCrate"` (std, then external crates, then this crate, as separate blocks), `hex_literal_case = "Lower"`, and `format_macro_matchers = true`. Stable `cargo fmt` silently skips all of them: the code looks formatted locally and fails CI.
 
 ```bash
-cargo +nightly fmt        # not `cargo fmt`; stable can't apply the Crate imports rule
+cargo +nightly fmt        # not `cargo fmt`; stable can't apply the unstable rules
 ```
 
 ### 2. Clippy, warnings are errors

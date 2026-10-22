@@ -15,7 +15,7 @@ jobs:
       - name: Test
         run: cargo test --locked
 
-  # Format with nightly (rustfmt.toml uses an unstable option), lint with stable.
+  # Format with nightly (rustfmt.toml uses unstable options), lint with stable.
   lint:
     runs-on: ubuntu-latest
     steps:

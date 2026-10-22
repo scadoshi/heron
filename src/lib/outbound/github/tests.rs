@@ -1,16 +1,16 @@
 //! The adapter against an in-process fake of GitHub's API.
 
+use std::sync::{Arc, Mutex};
+
+use axum::extract::{Request, State};
+use axum::http::{HeaderMap as AxumHeaders, StatusCode as AxumStatus, header};
+use axum::response::{IntoResponse, Response as AxumResponse};
+use axum::routing::{get, post};
+use axum::{Json, Router};
+use serde_json::json;
+
 use super::*;
 use crate::test_support::repo;
-use axum::{
-    Json, Router,
-    extract::{Request, State},
-    http::{HeaderMap as AxumHeaders, StatusCode as AxumStatus, header},
-    response::{IntoResponse, Response as AxumResponse},
-    routing::{get, post},
-};
-use serde_json::json;
-use std::sync::{Arc, Mutex};
 
 const TOKEN: &str = "ghp_a-token-that-must-never-be-printed";
 

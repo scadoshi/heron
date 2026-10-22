@@ -1,7 +1,8 @@
-use crate::domain::stats::models::repo_name::RepoName;
 use chrono::{DateTime, Utc};
 pub use measure::{Counts, Language};
 use thiserror::Error;
+
+use crate::domain::stats::models::repo_name::RepoName;
 
 /// One repository's counts as the service hands them out.
 #[derive(Debug, Clone, PartialEq, Eq)]

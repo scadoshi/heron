@@ -1,12 +1,11 @@
 //! Port traits for counts: where a measurement comes from, and the service the HTTP
 //! layer and the sweeper call.
 
-use crate::domain::{
-    BoxFuture,
-    counts::models::{Counts, CountsError, CountsReport, Sweep},
-    stats::models::repo_name::RepoName,
-};
 use std::future::Future;
+
+use crate::domain::BoxFuture;
+use crate::domain::counts::models::{Counts, CountsError, CountsReport, Sweep};
+use crate::domain::stats::models::repo_name::RepoName;
 
 /// Measures a repository's current source.
 pub trait CountsSource: Clone + Send + Sync + 'static {

@@ -1,7 +1,6 @@
-use crate::domain::{
-    health::{models::HealthCheckFailed, ports::HealthService},
-    stats::ports::StatsCache,
-};
+use crate::domain::health::models::HealthCheckFailed;
+use crate::domain::health::ports::HealthService;
+use crate::domain::stats::ports::StatsCache;
 
 /// Health checks over the same cache adapter the stats service uses.
 #[derive(Debug, Clone)]
