@@ -1,4 +1,4 @@
-//! [`Secret`], a string that never prints its contents.
+//! [`Secret`](crate::domain::secret::Secret), a string that never prints its contents.
 
 use thiserror::Error;
 

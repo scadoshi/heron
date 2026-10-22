@@ -31,6 +31,11 @@ jobs:
         run: cargo +nightly fmt --check
       - name: Clippy
         run: cargo clippy --all-targets --locked -- -D warnings
+      # Broken intra-doc links and other rustdoc warnings fail the way clippy's do.
+      - name: Docs
+        run: cargo doc --no-deps --workspace --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
 
   build:
     runs-on: ubuntu-latest
