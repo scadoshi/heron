@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::future::{self, Future};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use crate::domain::stats::models::cache_key::CacheKey;
@@ -28,30 +28,30 @@ impl MemoryCache {
         Self::default()
     }
 
-    /// A panic while holding the lock cannot leave the map half-written, since every
-    /// critical section is a single insert or remove. So a poisoned lock is taken
-    /// anyway.
-    fn entries(&self) -> MutexGuard<'_, Entries> {
-        self.entries.lock().unwrap_or_else(PoisonError::into_inner)
+    /// The map, or an error once a panic while holding the lock has poisoned it.
+    fn entries(&self) -> Result<MutexGuard<'_, Entries>, CacheError> {
+        self.entries
+            .lock()
+            .map_err(|_| CacheError(anyhow::anyhow!("memory cache lock poisoned")))
     }
 
-    fn lookup(&self, key: &CacheKey) -> Option<Vec<u8>> {
-        let mut entries = self.entries();
-        match entries.get(&**key) {
+    fn lookup(&self, key: &CacheKey) -> Result<Option<Vec<u8>>, CacheError> {
+        let mut entries = self.entries()?;
+        Ok(match entries.get(&**key) {
             Some((deadline, value)) if Instant::now() < *deadline => Some(value.clone()),
             Some(_) => {
                 entries.remove(&**key);
                 None
             }
             None => None,
-        }
+        })
     }
 
     fn store(&self, key: &CacheKey, value: &[u8], retain: Duration) -> Result<(), CacheError> {
         let deadline = Instant::now()
             .checked_add(retain)
             .ok_or_else(|| CacheError(anyhow::anyhow!("retain window overflows the clock")))?;
-        self.entries()
+        self.entries()?
             .insert(key.to_string(), (deadline, value.to_vec()));
         Ok(())
     }
@@ -68,7 +68,7 @@ impl Cache for MemoryCache {
         &self,
         key: &CacheKey,
     ) -> impl Future<Output = Result<Option<Vec<u8>>, CacheError>> + Send {
-        future::ready(Ok(self.lookup(key)))
+        future::ready(self.lookup(key))
     }
 
     fn set(
@@ -80,13 +80,16 @@ impl Cache for MemoryCache {
         future::ready(self.store(key, value, retain))
     }
 
+    /// Fails once the lock is poisoned, since `get` and `set` then fail too.
     fn ping(&self) -> impl Future<Output = Result<(), CacheError>> + Send {
-        future::ready(Ok(()))
+        future::ready(self.entries().map(|_| ()))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::thread;
+
     use super::*;
     use crate::test_support::repo;
 
@@ -122,7 +125,26 @@ mod tests {
         assert!(cache.get(&key()).await.unwrap().is_some());
         tokio::time::sleep(Duration::from_millis(30)).await;
         assert_eq!(cache.get(&key()).await.unwrap(), None);
-        assert_eq!(cache.entries().len(), 0);
+        assert_eq!(cache.entries().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn a_poisoned_lock_fails_every_call_instead_of_panicking() {
+        let cache = MemoryCache::new();
+        let held = cache.clone();
+        let poisoner = thread::spawn(move || {
+            let _guard = held.entries.lock().unwrap();
+            panic!("poisoning the lock on purpose");
+        });
+        assert!(poisoner.join().is_err(), "the thread should have panicked");
+        assert!(cache.entries.is_poisoned());
+
+        let read = cache.get(&key()).await;
+        assert!(read.is_err(), "get on a poisoned lock: {read:?}");
+        let write = cache.set(&key(), b"v", Duration::from_mins(1)).await;
+        assert!(write.is_err(), "set on a poisoned lock: {write:?}");
+        let ping = cache.ping().await;
+        assert!(ping.is_err(), "ping on a poisoned lock: {ping:?}");
     }
 
     #[tokio::test]
