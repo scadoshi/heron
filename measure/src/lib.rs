@@ -7,12 +7,12 @@
 #![warn(missing_docs)]
 
 use std::path::Path;
-use std::{fs, io};
+use std::{fmt, fs, io};
 
 use serde::{Deserialize, Serialize};
 
 /// The language a repository is written in, decided by what sits at its root.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Language {
     /// A `Cargo.toml` at the root.
     Rust,
@@ -22,6 +22,7 @@ pub enum Language {
 
 impl Language {
     /// The language's name as the site prints it.
+    #[must_use]
     pub fn name(self) -> &'static str {
         match self {
             Self::Rust => "Rust",
@@ -52,6 +53,13 @@ impl Language {
     }
 }
 
+/// Writes [`Language::name`].
+impl fmt::Display for Language {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
 /// The file at a Rust repository's root that names it Rust and lists its lints.
 const CARGO_MANIFEST: &str = "Cargo.toml";
 
@@ -68,7 +76,7 @@ const RUST_TEST_PREFIXES: &[&str] = &[
 const CSHARP_TEST_PREFIXES: &[&str] = &["[Fact", "[Theory", "[Test]", "[TestMethod"];
 
 /// What one repository's source contains.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Counts {
     /// The language the files were counted as.
     pub language: Language,
