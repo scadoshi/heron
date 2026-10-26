@@ -7,7 +7,7 @@ use super::rfc3339;
 use crate::domain::calendar::models::{CalendarReport, Day};
 use crate::domain::counts::models::CountsReport;
 use crate::domain::stats::models::portfolio_stats::{PortfolioStats, Totals};
-use crate::domain::stats::models::repo_stats::{Language, RepoReport, WeekCommits};
+use crate::domain::stats::models::repo_stats::{LanguageBytes, RepoReport, WeekCommits};
 
 /// One language of a repository.
 #[derive(Debug, Serialize)]
@@ -18,8 +18,8 @@ pub struct HttpLanguage {
     pub bytes: u64,
 }
 
-impl From<Language> for HttpLanguage {
-    fn from(language: Language) -> Self {
+impl From<LanguageBytes> for HttpLanguage {
+    fn from(language: LanguageBytes) -> Self {
         Self {
             name: language.name,
             bytes: language.bytes,

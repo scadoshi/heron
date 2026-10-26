@@ -19,12 +19,12 @@ use chrono::{DateTime, NaiveDate, TimeDelta, TimeZone, Utc};
 use crate::domain::calendar::models::{Calendar, CalendarError, Day};
 use crate::domain::calendar::ports::CalendarSource;
 use crate::domain::clock::Clock;
-use crate::domain::counts::models::{Counts, CountsError, Language as CountsLanguage};
+use crate::domain::counts::models::{Counts, CountsError, Language};
 use crate::domain::counts::ports::CountsSource;
 use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::errors::{CacheError, StatsError};
 use crate::domain::stats::models::repo_name::RepoName;
-use crate::domain::stats::models::repo_stats::{Language, RepoStats, WeekCommits};
+use crate::domain::stats::models::repo_stats::{LanguageBytes, RepoStats, WeekCommits};
 use crate::domain::stats::ports::{Cache, StatsSource};
 
 /// Parses a repository name known to be valid.
@@ -40,7 +40,7 @@ pub fn stats_for(repo: &RepoName, commits: u64) -> RepoStats {
         stars: 3,
         default_branch: "main".to_string(),
         pushed_at: Some(Utc.with_ymd_and_hms(2026, 9, 1, 12, 0, 0).unwrap()),
-        languages: vec![Language {
+        languages: vec![LanguageBytes {
             name: "Rust".to_string(),
             bytes: 1000,
         }],
@@ -335,7 +335,7 @@ impl fmt::Debug for FakeCountsSource {
 /// Rust counts with `lines` lines.
 pub fn counts_with(lines: u64) -> Counts {
     Counts {
-        language: CountsLanguage::Rust,
+        language: Language::Rust,
         lines,
         tests: 7,
         clippy_lints: Some(3),

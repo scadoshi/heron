@@ -22,7 +22,7 @@ use crate::domain::calendar::ports::CalendarSource;
 use crate::domain::secret::Secret;
 use crate::domain::stats::models::errors::StatsError;
 use crate::domain::stats::models::repo_name::RepoName;
-use crate::domain::stats::models::repo_stats::{Language, RepoStats, WeekCommits};
+use crate::domain::stats::models::repo_stats::{LanguageBytes, RepoStats, WeekCommits};
 use crate::domain::stats::ports::StatsSource;
 
 /// GitHub rejects a request that carries no `User-Agent`.
@@ -200,12 +200,12 @@ impl GitHub {
         Ok(u64::try_from(commits.len()).unwrap_or(u64::MAX))
     }
 
-    async fn fetch_languages(&self, repo: &RepoName) -> Result<Vec<Language>, GitHubError> {
+    async fn fetch_languages(&self, repo: &RepoName) -> Result<Vec<LanguageBytes>, GitHubError> {
         let response = check_status(self.get(repo, "/languages").send().await?)?;
         let bytes_by_name: HashMap<String, u64> = response.json().await?;
-        let mut languages: Vec<Language> = bytes_by_name
+        let mut languages: Vec<LanguageBytes> = bytes_by_name
             .into_iter()
-            .map(|(name, bytes)| Language { name, bytes })
+            .map(|(name, bytes)| LanguageBytes { name, bytes })
             .collect();
         languages.sort_by(|a, b| b.bytes.cmp(&a.bytes).then_with(|| a.name.cmp(&b.name)));
         Ok(languages)

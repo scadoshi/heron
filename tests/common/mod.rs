@@ -33,12 +33,12 @@ use chrono::{DateTime, NaiveDate, TimeDelta, TimeZone, Utc};
 use heron::domain::calendar::models::{Calendar, CalendarError, Day};
 use heron::domain::calendar::ports::{CalendarSource, ErasedCalendarService};
 use heron::domain::clock::Clock;
-use heron::domain::counts::models::{Counts, CountsError, Language as CountsLanguage};
+use heron::domain::counts::models::{Counts, CountsError, Language};
 use heron::domain::counts::ports::{CountsSource, ErasedCountsService};
 use heron::domain::stats::models::cache_key::CacheKey;
 use heron::domain::stats::models::errors::{CacheError, StatsError};
 use heron::domain::stats::models::repo_name::RepoName;
-use heron::domain::stats::models::repo_stats::{Language, RepoStats, WeekCommits};
+use heron::domain::stats::models::repo_stats::{LanguageBytes, RepoStats, WeekCommits};
 use heron::domain::stats::ports::{Cache, StatsSource};
 use heron::domain::{calendar, counts, health, stats};
 use heron::inbound::http::{self, AppState};
@@ -130,11 +130,11 @@ impl StubSource {
                 default_branch: "main".to_string(),
                 pushed_at: Some(Utc.with_ymd_and_hms(2026, 9, 29, 15, 58, 2).unwrap()),
                 languages: vec![
-                    Language {
+                    LanguageBytes {
                         name: "Rust".to_string(),
                         bytes: 9000,
                     },
-                    Language {
+                    LanguageBytes {
                         name: "Shell".to_string(),
                         bytes: 40,
                     },
@@ -169,7 +169,7 @@ pub struct StubCounts;
 /// The measurement [`StubCounts`] answers.
 pub fn stub_counts() -> Counts {
     Counts {
-        language: CountsLanguage::Rust,
+        language: Language::Rust,
         lines: 6102,
         tests: 242,
         clippy_lints: Some(14),

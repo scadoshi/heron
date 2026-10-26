@@ -11,7 +11,7 @@ use crate::domain::stats::models::repo_name::RepoName;
     missing_docs,
     reason = "the struct doc says what the name and the byte count are"
 )]
-pub struct Language {
+pub struct LanguageBytes {
     pub name: String,
     pub bytes: u64,
 }
@@ -39,7 +39,7 @@ pub struct RepoStats {
     /// Last push to any branch. `None` for a repository that has never been pushed to.
     pub pushed_at: Option<DateTime<Utc>>,
     /// Sorted by bytes, largest first.
-    pub languages: Vec<Language>,
+    pub languages: Vec<LanguageBytes>,
     /// Lines added across all commits, every rewrite counted again. `None` while
     /// GitHub is still computing contributor statistics.
     pub additions: Option<u64>,
