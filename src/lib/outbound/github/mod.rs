@@ -85,7 +85,7 @@ pub enum GitHubError {
     #[error("github returned status {0}")]
     Status(u16),
     /// Network failure, or a body that did not parse.
-    #[error("github request failed: {0}")]
+    #[error(transparent)]
     Network(#[from] reqwest::Error),
 }
 

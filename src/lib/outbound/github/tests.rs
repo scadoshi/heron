@@ -646,3 +646,20 @@ async fn a_graphql_error_in_the_body_is_upstream() {
         .unwrap_err();
     assert!(error.to_string().contains("Could not resolve"), "{error}");
 }
+
+#[tokio::test]
+async fn a_network_failure_names_each_cause_once() {
+    let github = GitHub::new("http://127.0.0.1:9", None).unwrap();
+    let error = github.fetch_repo_stats(&repo("a/b")).await.unwrap_err();
+    let message = error.to_string();
+    assert_eq!(
+        message.matches("github request failed").count(),
+        1,
+        "{message}"
+    );
+    assert_eq!(
+        message.matches("error sending request").count(),
+        1,
+        "{message}"
+    );
+}
