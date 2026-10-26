@@ -35,11 +35,6 @@ impl CacheKey {
     pub fn for_calendar(login: &str) -> Self {
         Self(format!("heron:calendar:v{SCHEMA_VERSION}:{login}"))
     }
-
-    /// The key as bytes, the form a cache adapter sends.
-    pub fn as_bytes(&self) -> &[u8] {
-        self.0.as_bytes()
-    }
 }
 
 impl Deref for CacheKey {

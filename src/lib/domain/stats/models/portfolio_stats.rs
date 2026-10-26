@@ -48,14 +48,22 @@ impl Totals {
                 });
             }
         }
-        let mut totals = reports.iter().fold(Self::default(), |totals, report| Self {
-            repos: totals.repos.saturating_add(1),
-            commits: totals.commits.saturating_add(report.stats.commits),
-            stars: totals.stars.saturating_add(u64::from(report.stats.stars)),
-            weekly_commits: Vec::new(),
-        });
-        totals.weekly_commits = newest_first.into_iter().rev().flatten().collect();
-        totals
+        let (repos, commits, stars) =
+            reports
+                .iter()
+                .fold((0_u32, 0_u64, 0_u64), |(repos, commits, stars), report| {
+                    (
+                        repos.saturating_add(1),
+                        commits.saturating_add(report.stats.commits),
+                        stars.saturating_add(u64::from(report.stats.stars)),
+                    )
+                });
+        Self {
+            repos,
+            commits,
+            stars,
+            weekly_commits: newest_first.into_iter().rev().flatten().collect(),
+        }
     }
 }
 

@@ -41,21 +41,31 @@ impl Language {
         match self {
             Self::Rust => {
                 line == "#[test]"
-                    || [
-                        "#[tokio::test",
-                        "#[rstest",
-                        "#[wasm_bindgen_test",
-                        "#[sqlx::test",
-                    ]
-                    .iter()
-                    .any(|prefix| line.starts_with(prefix))
+                    || RUST_TEST_PREFIXES
+                        .iter()
+                        .any(|prefix| line.starts_with(prefix))
             }
-            Self::CSharp => ["[Fact", "[Theory", "[Test]", "[TestMethod"]
+            Self::CSharp => CSHARP_TEST_PREFIXES
                 .iter()
                 .any(|prefix| line.starts_with(prefix)),
         }
     }
 }
+
+/// The file at a Rust repository's root that names it Rust and lists its lints.
+const CARGO_MANIFEST: &str = "Cargo.toml";
+
+/// Rust test attributes besides a bare `#[test]`, matched as line prefixes so their
+/// arguments do not matter.
+const RUST_TEST_PREFIXES: &[&str] = &[
+    "#[tokio::test",
+    "#[rstest",
+    "#[wasm_bindgen_test",
+    "#[sqlx::test",
+];
+
+/// C# test attributes, matched as line prefixes.
+const CSHARP_TEST_PREFIXES: &[&str] = &["[Fact", "[Theory", "[Test]", "[TestMethod"];
 
 /// What one repository's source contains.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -95,7 +105,9 @@ pub fn measure(repo: &Path) -> io::Result<Option<Counts>> {
         }
     })?;
     let clippy_lints = match language {
-        Language::Rust => Some(clippy_lints(&fs::read_to_string(repo.join("Cargo.toml"))?)),
+        Language::Rust => Some(clippy_lints(&fs::read_to_string(
+            repo.join(CARGO_MANIFEST),
+        )?)),
         Language::CSharp => None,
     };
     Ok(Some(Counts {
@@ -109,7 +121,7 @@ pub fn measure(repo: &Path) -> io::Result<Option<Counts>> {
 /// Rust when there is a `Cargo.toml` at the root, C# when there is a project or
 /// solution file.
 fn language_of(repo: &Path) -> io::Result<Option<Language>> {
-    if repo.join("Cargo.toml").is_file() {
+    if repo.join(CARGO_MANIFEST).is_file() {
         return Ok(Some(Language::Rust));
     }
     for entry in fs::read_dir(repo)? {

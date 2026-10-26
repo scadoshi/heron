@@ -153,7 +153,7 @@ impl Config {
 
         let bind_address = required(BIND_ADDRESS_KEY)?;
 
-        let allowed_origins = required(ALLOWED_ORIGINS_KEY)?
+        let allowed_origins: Vec<HeaderValue> = required(ALLOWED_ORIGINS_KEY)?
             .split(',')
             .map(|origin| {
                 origin
@@ -161,7 +161,7 @@ impl Config {
                     .parse::<HeaderValue>()
                     .with_context(|| format!("invalid origin in {ALLOWED_ORIGINS_KEY}: {origin:?}"))
             })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<anyhow::Result<_>>()?;
 
         let mut github_repos = Vec::new();
         for raw in required(GITHUB_REPOS_KEY)?.split(',') {

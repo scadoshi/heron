@@ -24,13 +24,13 @@ impl<T> Snapshot<T> {
 
 #[cfg(test)]
 mod tests {
-    use chrono::TimeDelta;
+    use chrono::{TimeDelta, TimeZone};
 
     use super::*;
 
     #[test]
     fn fresh_before_the_deadline_and_stale_from_it() {
-        let now = Utc::now();
+        let now = Utc.with_ymd_and_hms(2026, 10, 1, 12, 0, 0).unwrap();
         let snapshot = Snapshot {
             value: (),
             fetched_at: now,

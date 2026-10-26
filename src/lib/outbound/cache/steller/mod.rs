@@ -164,6 +164,9 @@ mod tests {
     use super::*;
     use crate::test_support::repo;
 
+    /// What the fake server holds: keys to values, both raw bytes.
+    type Store = Mutex<HashMap<Vec<u8>, Vec<u8>>>;
+
     fn key() -> CacheKey {
         CacheKey::for_repo(&repo("a/b"))
     }
@@ -204,11 +207,7 @@ mod tests {
         (address, accepted)
     }
 
-    async fn serve(
-        mut stream: TcpStream,
-        behavior: Behavior,
-        store: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
-    ) {
+    async fn serve(mut stream: TcpStream, behavior: Behavior, store: Arc<Store>) {
         let mut buf = Vec::new();
         loop {
             let Some(parts) = read_command(&mut stream, &mut buf).await else {
@@ -242,7 +241,7 @@ mod tests {
         }
     }
 
-    async fn answer(parts: &[Vec<u8>], store: &Mutex<HashMap<Vec<u8>, Vec<u8>>>) -> Vec<u8> {
+    async fn answer(parts: &[Vec<u8>], store: &Store) -> Vec<u8> {
         match parts[0].to_ascii_uppercase().as_slice() {
             b"PING" => b"+PONG\r\n".to_vec(),
             b"SET" => {

@@ -136,6 +136,14 @@ async fn security_headers(request: Request, next: Next) -> Response {
 
 // == server ==
 
+/// Largest request body accepted, in bytes. Every route is a `GET` with no body,
+/// so this only caps what a client can make the server read.
+const MAX_BODY_BYTES: usize = 16 * 1024;
+
+/// How long a request may take before it is answered 408. Room for a stats
+/// refresh, which waits on several GitHub requests of up to ten seconds each.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// Bind address and CORS origins for the HTTP server.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpServerConfig<'a> {
@@ -210,10 +218,10 @@ pub fn build_router(state: AppState, allowed_origins: Vec<HeaderValue>) -> anyho
     Ok(Router::new()
         .merge(routes::routes()?)
         .fallback(not_found)
-        .layer(RequestBodyLimitLayer::new(16 * 1024))
+        .layer(RequestBodyLimitLayer::new(MAX_BODY_BYTES))
         .layer(TimeoutLayer::with_status_code(
             StatusCode::REQUEST_TIMEOUT,
-            Duration::from_secs(30),
+            REQUEST_TIMEOUT,
         ))
         .layer(axum::middleware::from_fn(security_headers))
         .layer(
@@ -229,16 +237,15 @@ pub fn build_router(state: AppState, allowed_origins: Vec<HeaderValue>) -> anyho
         .with_state(state))
 }
 
-/// A single origin is sent on every response, whatever the request's `Origin`
-/// header says. A CDN caches by URL and ignores `Vary`, so a copy filled by a
-/// request without `Origin` (a curl, the deploy workflow) would otherwise carry
-/// no CORS header and every browser served it would fail. More than one origin
-/// has to be mirrored per request.
-fn allow_origin(mut origins: Vec<HeaderValue>) -> AllowOrigin {
-    if origins.len() == 1 {
-        AllowOrigin::exact(origins.remove(0))
-    } else {
-        AllowOrigin::list(origins)
+/// The CORS origin rule: one origin is sent as is, several are mirrored per request.
+///
+/// A single origin goes on every response whatever the request's `Origin` says,
+/// because a CDN caches by URL and ignores `Vary`, and a copy filled by a request
+/// without `Origin` would otherwise reach browsers with no CORS header.
+fn allow_origin(origins: Vec<HeaderValue>) -> AllowOrigin {
+    match <[HeaderValue; 1]>::try_from(origins) {
+        Ok([one]) => AllowOrigin::exact(one),
+        Err(all) => AllowOrigin::list(all),
     }
 }
 

@@ -36,6 +36,29 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 /// The wait before the second ask for statistics GitHub is still computing.
 const COMPUTING_PAUSE: Duration = Duration::from_secs(3);
 
+/// An HTTP client for GitHub's REST API: every request carries the user agent, the
+/// API version and the JSON media type, and gives up after `timeout`.
+///
+/// # Errors
+///
+/// When the client cannot be built: its TLS backend fails to initialize.
+pub(crate) fn client(timeout: Duration) -> reqwest::Result<reqwest::Client> {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        ACCEPT,
+        HeaderValue::from_static("application/vnd.github+json"),
+    );
+    headers.insert(
+        "x-github-api-version",
+        HeaderValue::from_static(API_VERSION),
+    );
+    reqwest::Client::builder()
+        .user_agent(USER_AGENT)
+        .default_headers(headers)
+        .timeout(timeout)
+        .build()
+}
+
 /// Errors reading from GitHub.
 #[derive(Debug, Error)]
 pub enum GitHubError {
@@ -96,22 +119,8 @@ impl GitHub {
     ///
     /// When the HTTP client cannot be built: its TLS backend fails to initialize.
     pub fn new(base: &str, token: Option<Secret>) -> Result<Self, reqwest::Error> {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            ACCEPT,
-            HeaderValue::from_static("application/vnd.github+json"),
-        );
-        headers.insert(
-            "x-github-api-version",
-            HeaderValue::from_static(API_VERSION),
-        );
-        let client = reqwest::Client::builder()
-            .user_agent(USER_AGENT)
-            .default_headers(headers)
-            .timeout(REQUEST_TIMEOUT)
-            .build()?;
         Ok(Self {
-            client,
+            client: client(REQUEST_TIMEOUT)?,
             base: base.trim_end_matches('/').to_string(),
             token,
             computing_pause: COMPUTING_PAUSE,

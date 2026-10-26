@@ -16,19 +16,14 @@ use std::time::Duration;
 
 use anyhow::Context;
 use flate2::read::GzDecoder;
-use reqwest::header::{ACCEPT, HeaderMap, HeaderValue};
 use tokio::io::AsyncWriteExt;
 
 use crate::domain::counts::models::{Counts, CountsError};
 use crate::domain::counts::ports::CountsSource;
 use crate::domain::secret::Secret;
 use crate::domain::stats::models::repo_name::RepoName;
+use crate::outbound::github;
 
-/// GitHub rejects a request that carries no `User-Agent`.
-const USER_AGENT: &str = "heron (+https://github.com/scadoshi/heron)";
-/// The REST API version sent as `X-GitHub-Api-Version`, the dated version GitHub
-/// documents at <https://docs.github.com/rest/about-the-rest-api/api-versions>.
-const API_VERSION: &str = "2022-11-28";
 /// A tarball runs to tens of megabytes; the budget covers a slow link.
 const REQUEST_TIMEOUT: Duration = Duration::from_mins(1);
 /// The downloaded tarball's name inside its unpack directory.
@@ -54,22 +49,8 @@ impl Tarball {
     ///
     /// When the HTTP client cannot be built: its TLS backend fails to initialize.
     pub fn new(base: &str, token: Option<Secret>, dir: PathBuf) -> Result<Self, reqwest::Error> {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            ACCEPT,
-            HeaderValue::from_static("application/vnd.github+json"),
-        );
-        headers.insert(
-            "x-github-api-version",
-            HeaderValue::from_static(API_VERSION),
-        );
-        let client = reqwest::Client::builder()
-            .user_agent(USER_AGENT)
-            .default_headers(headers)
-            .timeout(REQUEST_TIMEOUT)
-            .build()?;
         Ok(Self {
-            client,
+            client: github::client(REQUEST_TIMEOUT)?,
             base: base.trim_end_matches('/').to_string(),
             token,
             dir,

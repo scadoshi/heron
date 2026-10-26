@@ -44,9 +44,9 @@ fn too_many_requests(wait_secs: u64, headers: Option<HeaderMap>) -> Response<Bod
     if let Some(headers) = headers {
         response.headers_mut().extend(headers);
     }
-    if let Ok(value) = HeaderValue::from_str(&wait_secs.to_string()) {
-        response.headers_mut().insert(header::RETRY_AFTER, value);
-    }
+    response
+        .headers_mut()
+        .insert(header::RETRY_AFTER, HeaderValue::from(wait_secs));
     response
 }
 
