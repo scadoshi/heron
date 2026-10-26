@@ -266,7 +266,7 @@ mod tests {
     async fn a_fresh_snapshot_is_served_without_calling_the_source() {
         let (service, source, _, clock) = service(&["a/b"]);
         service.fetch_repo_stats(&repo("a/b")).await.unwrap();
-        clock.advance(FRESH_SECS - 1);
+        clock.advance(Duration::from_secs(FRESH_SECS - 1));
         let report = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         assert_eq!(source.calls(), 1);
         assert!(!report.stale);
@@ -276,7 +276,7 @@ mod tests {
     async fn a_stale_snapshot_triggers_one_refresh() {
         let (service, source, _, clock) = service(&["a/b"]);
         service.fetch_repo_stats(&repo("a/b")).await.unwrap();
-        clock.advance(FRESH_SECS);
+        clock.advance(Duration::from_secs(FRESH_SECS));
         source.set_commits(99);
         let report = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         assert_eq!(source.calls(), 2);
@@ -288,7 +288,7 @@ mod tests {
     async fn a_source_failure_serves_the_stale_snapshot_and_marks_it() {
         let (service, source, _, clock) = service(&["a/b"]);
         let first = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
-        clock.advance(FRESH_SECS);
+        clock.advance(Duration::from_secs(FRESH_SECS));
         for failure in [Failure::Upstream, Failure::RateLimited] {
             source.fail_with(failure);
             let report = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
@@ -310,7 +310,7 @@ mod tests {
     async fn a_repository_that_went_private_is_not_served_from_the_stale_value() {
         let (service, source, _, clock) = service(&["a/b"]);
         service.fetch_repo_stats(&repo("a/b")).await.unwrap();
-        clock.advance(FRESH_SECS);
+        clock.advance(Duration::from_secs(FRESH_SECS));
         source.fail_with(Failure::Private);
         let error = service.fetch_repo_stats(&repo("a/b")).await.unwrap_err();
         assert!(matches!(error, StatsError::PrivateRepo(_)));
@@ -414,7 +414,7 @@ mod tests {
         assert_eq!(first.stats.additions, Some(500));
 
         source.set_computed(false);
-        clock.advance(FRESH_SECS);
+        clock.advance(Duration::from_secs(FRESH_SECS));
         let second = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         assert_eq!(second.stats.weekly_commits, first.stats.weekly_commits);
         assert_eq!(second.stats.additions, Some(500));

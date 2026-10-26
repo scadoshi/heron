@@ -176,7 +176,9 @@ mod tests {
 
     use super::*;
     use crate::domain::stats;
-    use crate::test_support::{FakeCache, FakeClock, FakeCountsSource, FakeSource, repo};
+    use crate::test_support::{
+        FakeCache, FakeClock, FakeCountsSource, FakeSource, counts_with, repo,
+    };
 
     type Stats = stats::services::Service<FakeSource, FakeCache, FakeClock>;
     type Counting = Service<FakeCountsSource, FakeCache, Stats, FakeClock>;
@@ -228,7 +230,7 @@ mod tests {
     async fn a_repository_nobody_pushed_to_is_not_measured_again() {
         let (service, source, _, _, clock) = service(&["a/b"]);
         service.sweep().await;
-        clock.advance(3600);
+        clock.advance(Duration::from_secs(3600));
         let sweep = service.sweep().await;
         assert_eq!(sweep.skipped, [repo("a/b")]);
         assert_eq!(source.calls(), 1);
@@ -241,7 +243,7 @@ mod tests {
         source.set_lines(250);
         github.set_pushed_at(Some(clock.now() + TimeDelta::minutes(5)));
         // The stats service answers from its cache until its own freshness runs out.
-        clock.advance(901);
+        clock.advance(Duration::from_secs(901));
         let sweep = service.sweep().await;
         assert_eq!(sweep.measured, [repo("a/b")]);
         assert_eq!(source.calls(), 2);
@@ -262,7 +264,7 @@ mod tests {
         service.sweep().await;
         source.set_failing(true);
         github.set_pushed_at(Some(clock.now() + TimeDelta::minutes(5)));
-        clock.advance(901);
+        clock.advance(Duration::from_secs(901));
         let sweep = service.sweep().await;
         assert_eq!(sweep.failed.len(), 1);
         assert_eq!(
@@ -290,7 +292,7 @@ mod tests {
         let (service, source, github, _, clock) = service(&["a/b"]);
         service.sweep().await;
         github.fail_with(crate::test_support::Failure::Upstream);
-        clock.advance(8 * 24 * 60 * 60);
+        clock.advance(Duration::from_hours(8 * 24));
         let sweep = service.sweep().await;
         assert_eq!(sweep.skipped, [repo("a/b")]);
         assert_eq!(source.calls(), 1);
@@ -308,7 +310,7 @@ mod tests {
     fn needs_measuring_follows_the_push_not_the_clock() {
         let at = |h| Utc.with_ymd_and_hms(2026, 10, 1, h, 0, 0).unwrap();
         let snapshot = Snapshot {
-            value: FakeCountsSource::counts_with(1),
+            value: counts_with(1),
             fetched_at: at(12),
             fresh_until: at(13),
         };

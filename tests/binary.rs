@@ -83,7 +83,7 @@ fn sigterm(child: &Child) {
         .args(["-TERM", &child.id().unwrap().to_string()])
         .status()
         .unwrap();
-    assert!(status.success());
+    assert!(status.success(), "kill -TERM exited {status}");
 }
 
 /// A GitHub that knows one public repository with 66 commits. Returns its base URL
@@ -226,7 +226,11 @@ async fn serves_stats_end_to_end_and_asks_github_once() {
         assert_eq!(body["additions"], Value::Null);
         assert_eq!(body["stale"], false);
     }
-    assert_eq!(asked.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        asked.load(Ordering::SeqCst),
+        1,
+        "times GitHub was asked for the repository"
+    );
 
     sigterm(&child);
     let (status, output) = finish(child).await;
@@ -257,11 +261,15 @@ async fn layered_serves_from_memory_while_steller_is_down_and_says_so_once() {
         let response = reqwest::get(format!("http://{address}/stats/scadoshi/steller"))
             .await
             .unwrap();
-        assert!(response.status().is_success());
+        assert!(response.status().is_success(), "{}", response.status());
         let body: Value = response.json().await.unwrap();
         assert_eq!(body["commits"], 66);
     }
-    assert_eq!(asked.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        asked.load(Ordering::SeqCst),
+        1,
+        "times GitHub was asked for the repository"
+    );
     let health: Value = reqwest::get(format!("http://{address}/health/cache"))
         .await
         .unwrap()

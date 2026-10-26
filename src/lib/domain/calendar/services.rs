@@ -191,7 +191,7 @@ mod tests {
         assert_eq!(first.calendar.login, "scadoshi");
         assert_eq!(first.calendar.total, 5099);
         assert!(!first.stale);
-        clock.advance(3599);
+        clock.advance(Duration::from_secs(3599));
         let second = service.fetch_calendar().await.unwrap();
         assert_eq!(second, first);
         assert_eq!(source.calls(), 1);
@@ -201,7 +201,7 @@ mod tests {
     async fn past_freshness_github_is_asked_again() {
         let (service, source, clock) = service(3600);
         service.fetch_calendar().await.unwrap();
-        clock.advance(3600);
+        clock.advance(Duration::from_secs(3600));
         source.set_total(5100);
         let report = service.fetch_calendar().await.unwrap();
         assert_eq!(report.calendar.total, 5100);
@@ -212,7 +212,7 @@ mod tests {
     async fn a_stale_calendar_covers_for_github_and_is_marked() {
         let (service, source, clock) = service(3600);
         let first = service.fetch_calendar().await.unwrap();
-        clock.advance(3600);
+        clock.advance(Duration::from_secs(3600));
         source.set_failing(true);
         let report = service.fetch_calendar().await.unwrap();
         assert!(report.stale);

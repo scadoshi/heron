@@ -205,20 +205,21 @@ mod tests {
         );
 
         secondary.fail_writes(true);
+        let result = cache.set(&key(), b"v", Duration::from_mins(1)).await;
         assert!(
-            cache
-                .set(&key(), b"v", Duration::from_mins(1))
-                .await
-                .is_err()
+            result.is_err(),
+            "both layers refused, yet the write answered {result:?}"
         );
     }
 
     #[tokio::test]
     async fn ping_reports_the_primary() {
         let (cache, primary, _) = layered();
-        assert!(cache.ping().await.is_ok());
+        let result = cache.ping().await;
+        assert!(result.is_ok(), "healthy primary: {result:?}");
         primary.fail_pings(true);
-        assert!(cache.ping().await.is_err());
+        let result = cache.ping().await;
+        assert!(result.is_err(), "failing primary: {result:?}");
     }
 
     #[tokio::test]
@@ -226,9 +227,15 @@ mod tests {
         let (cache, primary, _) = layered();
         primary.fail_reads(true);
         cache.get(&key()).await.unwrap();
-        assert!(cache.primary_down.load(Ordering::Relaxed));
+        assert!(
+            cache.primary_down.load(Ordering::Relaxed),
+            "a failed read did not set the down flag"
+        );
         primary.fail_reads(false);
         cache.get(&key()).await.unwrap();
-        assert!(!cache.primary_down.load(Ordering::Relaxed));
+        assert!(
+            !cache.primary_down.load(Ordering::Relaxed),
+            "a good read did not clear the down flag"
+        );
     }
 }

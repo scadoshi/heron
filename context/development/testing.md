@@ -24,7 +24,7 @@ A test name is a sentence about behavior: `a_source_failure_serves_the_stale_sna
 
 Unit tests use the fakes in `src/lib/test_support.rs`:
 
-- `FakeClock` moves only when told to, with `advance(secs)`.
+- `FakeClock` moves only when told to, with `advance(by)`.
 - `FakeSource` counts its calls, fails on request, and can take time to answer so that concurrent callers pile up behind it.
 - `FakeCache` fails reads, writes or pings on request, and records the retain window it was last given.
 

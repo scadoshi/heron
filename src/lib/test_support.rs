@@ -72,9 +72,9 @@ impl fmt::Debug for FakeClock {
 }
 
 impl FakeClock {
-    pub fn advance(&self, secs: u64) {
+    pub fn advance(&self, by: Duration) {
         let mut now = self.0.lock().unwrap();
-        *now += TimeDelta::seconds(i64::try_from(secs).unwrap());
+        *now += TimeDelta::from_std(by).unwrap();
     }
 }
 
@@ -332,17 +332,17 @@ impl fmt::Debug for FakeCountsSource {
     }
 }
 
-impl FakeCountsSource {
-    /// Rust counts with `lines` lines.
-    pub fn counts_with(lines: u64) -> Counts {
-        Counts {
-            language: CountsLanguage::Rust,
-            lines,
-            tests: 7,
-            clippy_lints: Some(3),
-        }
+/// Rust counts with `lines` lines.
+pub fn counts_with(lines: u64) -> Counts {
+    Counts {
+        language: CountsLanguage::Rust,
+        lines,
+        tests: 7,
+        clippy_lints: Some(3),
     }
+}
 
+impl FakeCountsSource {
     pub fn calls(&self) -> u32 {
         self.0.lock().unwrap().calls
     }
@@ -366,7 +366,7 @@ impl CountsSource for FakeCountsSource {
         future::ready(if state.fail {
             Err(CountsError::Upstream(anyhow::anyhow!("tarball refused")))
         } else {
-            Ok(Self::counts_with(state.lines))
+            Ok(counts_with(state.lines))
         })
     }
 }
@@ -399,23 +399,23 @@ impl fmt::Debug for FakeCalendar {
     }
 }
 
-impl FakeCalendar {
-    /// Three days ending 2026-10-01, summing to whatever `total` the fake holds
-    /// only when it is 5099; otherwise the days are the same and `total` differs,
-    /// which is enough to tell answers apart.
-    pub fn calendar_for(login: &str, total: u32) -> Calendar {
-        let day = |d, count, level| Day {
-            date: NaiveDate::from_ymd_opt(2026, 9, d).unwrap_or(NaiveDate::MIN),
-            count,
-            level,
-        };
-        Calendar {
-            login: login.to_string(),
-            total,
-            days: vec![day(29, 0, 0), day(30, 12, 2), day(31, 48, 3)],
-        }
+/// Three days ending 2026-10-01, summing to whatever `total` the fake holds
+/// only when it is 5099; otherwise the days are the same and `total` differs,
+/// which is enough to tell answers apart.
+pub fn calendar_for(login: &str, total: u32) -> Calendar {
+    let day = |d, count, level| Day {
+        date: NaiveDate::from_ymd_opt(2026, 9, d).unwrap_or(NaiveDate::MIN),
+        count,
+        level,
+    };
+    Calendar {
+        login: login.to_string(),
+        total,
+        days: vec![day(29, 0, 0), day(30, 12, 2), day(31, 48, 3)],
     }
+}
 
+impl FakeCalendar {
     pub fn calls(&self) -> u32 {
         self.0.lock().unwrap().calls
     }
@@ -439,7 +439,7 @@ impl CalendarSource for FakeCalendar {
         future::ready(if state.fail {
             Err(CalendarError::Upstream(anyhow::anyhow!("graphql refused")))
         } else {
-            Ok(Self::calendar_for(login, state.total))
+            Ok(calendar_for(login, state.total))
         })
     }
 }

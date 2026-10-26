@@ -68,8 +68,8 @@ impl Default for TestClock {
 }
 
 impl TestClock {
-    pub fn advance(&self, secs: u64) {
-        *self.0.lock().unwrap() += TimeDelta::seconds(i64::try_from(secs).unwrap());
+    pub fn advance(&self, by: Duration) {
+        *self.0.lock().unwrap() += TimeDelta::from_std(by).unwrap();
     }
 }
 
@@ -166,14 +166,13 @@ impl StubSource {
 #[derive(Clone, Default)]
 pub struct StubCounts;
 
-impl StubCounts {
-    pub fn counts() -> Counts {
-        Counts {
-            language: CountsLanguage::Rust,
-            lines: 6102,
-            tests: 242,
-            clippy_lints: Some(14),
-        }
+/// The measurement [`StubCounts`] answers.
+pub fn stub_counts() -> Counts {
+    Counts {
+        language: CountsLanguage::Rust,
+        lines: 6102,
+        tests: 242,
+        clippy_lints: Some(14),
     }
 }
 
@@ -182,7 +181,7 @@ impl CountsSource for StubCounts {
         &self,
         _: &RepoName,
     ) -> impl Future<Output = Result<Counts, CountsError>> + Send {
-        future::ready(Ok(Self::counts()))
+        future::ready(Ok(stub_counts()))
     }
 }
 

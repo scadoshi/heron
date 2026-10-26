@@ -2,6 +2,8 @@
 
 mod common;
 
+use std::time::Duration;
+
 use axum::http::StatusCode;
 use common::{ALLOWED_ORIGIN, DeadCache, FRESH_SECS, Outcome, TestApp, repo};
 use heron::inbound::http::routes::STATS_ROUTE;
@@ -44,7 +46,7 @@ async fn counts_appear_once_a_sweep_has_measured_the_repository() {
     let app = TestApp::new(&["scadoshi/steller"]);
     let sweep = app.counts.sweep().await;
     assert_eq!(sweep.measured.len(), 1);
-    app.clock.advance(60);
+    app.clock.advance(Duration::from_secs(60));
     let reply = app.get("/stats/scadoshi/steller").await;
     assert_eq!(reply.status, StatusCode::OK);
     assert_eq!(
@@ -98,7 +100,8 @@ async fn portfolio_stats_has_the_documented_shape() {
         .collect();
     assert_eq!(names, ["a/one", "a/two"]);
     assert_eq!(body["repos"][1]["commits"], 32);
-    assert_eq!(body.as_object().unwrap().len(), 5);
+    let fields = body.as_object().unwrap();
+    assert_eq!(fields.len(), 5, "{:?}", fields.keys());
 }
 
 #[tokio::test]
@@ -125,7 +128,7 @@ async fn the_portfolio_carries_the_contribution_calendar() {
 async fn a_second_request_is_served_from_the_cache() {
     let app = TestApp::new(&["a/b"]);
     app.get("/stats/a/b").await;
-    app.clock.advance(FRESH_SECS - 1);
+    app.clock.advance(Duration::from_secs(FRESH_SECS - 1));
     let reply = app.get("/stats/a/b").await;
     assert_eq!(reply.status, StatusCode::OK);
     assert_eq!(app.source.calls(), 1);
@@ -135,7 +138,7 @@ async fn a_second_request_is_served_from_the_cache() {
 async fn a_stale_value_is_served_and_marked_when_the_source_is_down() {
     let app = TestApp::new(&["a/b"]);
     app.get("/stats/a/b").await;
-    app.clock.advance(FRESH_SECS);
+    app.clock.advance(Duration::from_secs(FRESH_SECS));
     app.source.answer(&repo("a/b"), Outcome::RateLimited);
     let reply = app.get("/stats/a/b").await;
     assert_eq!(reply.status, StatusCode::OK);
@@ -287,11 +290,16 @@ async fn every_response_carries_the_security_headers_and_a_request_id() {
     let app = TestApp::new(&["a/b"]);
     for path in ["/stats/a/b", "/stats/a/other", "/health", "/admin"] {
         let reply = app.get(path).await;
-        assert_eq!(reply.header("x-content-type-options"), Some("nosniff"));
-        assert_eq!(reply.header("x-frame-options"), Some("DENY"));
+        assert_eq!(
+            reply.header("x-content-type-options"),
+            Some("nosniff"),
+            "{path}"
+        );
+        assert_eq!(reply.header("x-frame-options"), Some("DENY"), "{path}");
         assert_eq!(
             reply.header("referrer-policy"),
-            Some("strict-origin-when-cross-origin")
+            Some("strict-origin-when-cross-origin"),
+            "{path}"
         );
         assert!(reply.header("x-request-id").is_some(), "{path}");
     }

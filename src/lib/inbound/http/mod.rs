@@ -349,12 +349,15 @@ mod tests {
     async fn a_503_never_sends_its_detail() {
         let error = StatsError::Upstream(anyhow::anyhow!("error sending request for url (x)"));
         let (status, body) = body_of(error.into()).await;
-        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
-        assert_eq!(body, "stats are temporarily unavailable");
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "upstream failure");
+        assert_eq!(
+            body, "stats are temporarily unavailable",
+            "upstream failure"
+        );
 
         let (status, body) = body_of(StatsError::RateLimited { reset_at: None }.into()).await;
-        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
-        assert_eq!(body, "stats are temporarily unavailable");
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "rate limited");
+        assert_eq!(body, "stats are temporarily unavailable", "rate limited");
     }
 
     #[tokio::test]

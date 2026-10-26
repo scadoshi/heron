@@ -417,7 +417,10 @@ async fn a_rate_limit_on_the_statistics_fails_the_read() {
         .fetch_churn(&repo("a/b"))
         .await
         .unwrap_err();
-    assert!(matches!(error, GitHubError::RateLimited { .. }));
+    assert!(
+        matches!(error, GitHubError::RateLimited { .. }),
+        "{error:?}"
+    );
 }
 
 #[tokio::test]
@@ -458,7 +461,11 @@ async fn the_token_is_sent_only_when_configured() {
         .await
         .unwrap();
     for seen in without.seen.lock().unwrap().iter() {
-        assert!(!seen.headers.contains_key(header::AUTHORIZATION));
+        assert!(
+            !seen.headers.contains_key(header::AUTHORIZATION),
+            "{} sent a token with none configured",
+            seen.path_and_query
+        );
     }
 }
 
@@ -469,10 +476,13 @@ async fn the_token_never_appears_in_an_error_or_in_debug() {
     drop(listener);
     let github = GitHub::new(&base, Some(Secret::new(TOKEN).unwrap())).unwrap();
     let error = github.fetch_repo_stats(&repo("a/b")).await.unwrap_err();
-    assert!(matches!(error, StatsError::Upstream(_)));
-    assert!(!format!("{error}").contains(TOKEN));
-    assert!(!format!("{error:?}").contains(TOKEN));
-    assert!(!format!("{github:?}").contains(TOKEN));
+    assert!(matches!(error, StatsError::Upstream(_)), "{error:?}");
+    assert!(!format!("{error}").contains(TOKEN), "the token in Display");
+    assert!(!format!("{error:?}").contains(TOKEN), "the token in Debug");
+    assert!(
+        !format!("{github:?}").contains(TOKEN),
+        "the token in the client's Debug"
+    );
 
     let refused = Fake {
         refusal: Some((500, vec![])),
@@ -484,7 +494,10 @@ async fn the_token_never_appears_in_an_error_or_in_debug() {
         .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap_err();
-    assert!(!format!("{error} {error:?}").contains(TOKEN));
+    assert!(
+        !format!("{error} {error:?}").contains(TOKEN),
+        "the token in a refusal"
+    );
 }
 
 #[tokio::test]
@@ -493,8 +506,15 @@ async fn a_trailing_slash_on_the_base_is_dropped() {
     let github = fake.serve(None).await;
     let github = GitHub::new(&format!("{}/", github.base), None).unwrap();
     github.fetch_repo_stats(&repo("a/b")).await.unwrap();
-    assert!(fake.saw("/repos/a/b/languages"));
-    assert!(!fake.saw("//repos"));
+    let seen: Vec<String> = fake
+        .seen
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|seen| seen.path_and_query.clone())
+        .collect();
+    assert!(fake.saw("/repos/a/b/languages"), "{seen:?}");
+    assert!(!fake.saw("//repos"), "{seen:?}");
 }
 
 async fn graphql(State(fake): State<Fake>, request: Request) -> AxumResponse {

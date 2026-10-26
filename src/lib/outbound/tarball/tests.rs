@@ -157,7 +157,7 @@ async fn bytes_that_are_not_a_tarball_are_an_upstream_error_and_leave_nothing_be
     let leftovers = fs::read_dir(&dir).map_or(0, Iterator::count);
     let _ = fs::remove_dir_all(&dir);
     assert!(matches!(error, CountsError::Upstream(_)), "{error}");
-    assert_eq!(leftovers, 0);
+    assert_eq!(leftovers, 0, "entries left in the scratch directory");
 }
 
 #[tokio::test]
@@ -171,7 +171,7 @@ async fn a_real_repository_measures_from_github() {
     let counts = source.fetch_counts(&repo("scadoshi/gotcha")).await.unwrap();
     let leftovers = fs::read_dir(&dir).map_or(0, Iterator::count);
     let _ = fs::remove_dir_all(&dir);
-    assert_eq!(counts.language, Language::Rust);
+    assert_eq!(counts.language, Language::Rust, "{counts:?}");
     assert!(counts.lines > 300 && counts.tests >= 11, "{counts:?}");
-    assert_eq!(leftovers, 0);
+    assert_eq!(leftovers, 0, "entries left in the scratch directory");
 }

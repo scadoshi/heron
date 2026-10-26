@@ -374,8 +374,13 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(cache.get(&key()).await.unwrap().as_deref(), Some(&b"v"[..]));
-        assert!(cache.ping().await.is_ok());
-        assert_eq!(accepted.load(Ordering::SeqCst), 3);
+        let ping = cache.ping().await;
+        assert!(ping.is_ok(), "ping after reconnecting: {ping:?}");
+        assert_eq!(
+            accepted.load(Ordering::SeqCst),
+            3,
+            "connections opened: one per command"
+        );
     }
 
     #[tokio::test]
@@ -394,7 +399,8 @@ mod tests {
         let address = listener.local_addr().unwrap();
         drop(listener);
         let cache = StellerCache::new(address).unwrap();
-        assert!(cache.get(&key()).await.is_err());
+        let result = cache.get(&key()).await;
+        assert!(result.is_err(), "nothing listens, yet got {result:?}");
     }
 
     #[tokio::test]
@@ -405,20 +411,25 @@ mod tests {
             let error = cache.ping().await.unwrap_err();
             assert!(error.to_string().contains("ERR refused"), "{error}");
         }
-        assert_eq!(accepted.load(Ordering::SeqCst), 3);
+        assert_eq!(
+            accepted.load(Ordering::SeqCst),
+            3,
+            "connections opened: one per refused command"
+        );
     }
 
     #[tokio::test]
     async fn replies_left_over_from_a_rejected_command_are_never_read() {
         let (address, _) = fake_server(Behavior::RejectThenFlood).await;
         let cache = StellerCache::new(address).unwrap();
-        assert!(
-            cache
-                .set(&key(), b"v", Duration::from_mins(1))
-                .await
-                .is_err()
+        let set = cache.set(&key(), b"v", Duration::from_mins(1)).await;
+        assert!(set.is_err(), "the rejected set answered {set:?}");
+        assert_eq!(
+            cache.get(&key()).await.unwrap(),
+            None,
+            "the get read a leftover reply"
         );
-        assert_eq!(cache.get(&key()).await.unwrap(), None);
-        assert!(cache.ping().await.is_ok());
+        let ping = cache.ping().await;
+        assert!(ping.is_ok(), "the ping read a leftover reply: {ping:?}");
     }
 }
