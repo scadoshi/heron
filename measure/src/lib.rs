@@ -74,6 +74,12 @@ pub struct Counts {
 const SKIPPED: &[&str] = &["target", "bin", "obj", "node_modules"];
 
 /// Measures a checkout. `None` when it is neither a Rust nor a C# repository.
+///
+/// # Errors
+///
+/// When a directory under `repo` cannot be listed, or a Rust checkout's root
+/// `Cargo.toml` cannot be read or is not UTF-8. A source file that cannot be read is
+/// skipped, not an error.
 pub fn measure(repo: &Path) -> io::Result<Option<Counts>> {
     let Some(language) = language_of(repo)? else {
         return Ok(None);

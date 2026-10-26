@@ -182,6 +182,10 @@ impl fmt::Debug for HttpServer {
 
 /// Assembles the router and the middleware stack. Apart from `HttpServer::new` so
 /// tests can drive the router with `tower::ServiceExt::oneshot` and no socket.
+///
+/// # Errors
+///
+/// When the rate limiter rejects its configuration (see [`routes::routes`]).
 pub fn build_router(
     state: AppState,
     allowed_origins: Vec<HeaderValue>,
@@ -248,6 +252,12 @@ impl HttpServer {
     ///
     /// The services arrive already erased: their concrete types depend on the cache
     /// backend chosen at startup, and the caller is where that is known.
+    ///
+    /// # Errors
+    ///
+    /// When the rate limit configuration is rejected (see [`build_router`]), or
+    /// the listener cannot bind `config.bind_address`: the address does not
+    /// resolve, is already in use, or is not this host's to bind.
     pub async fn new(
         stats_service: Arc<dyn ErasedStatsService>,
         health_service: Arc<dyn ErasedHealthService>,
@@ -270,6 +280,11 @@ impl HttpServer {
 
     /// Serves requests until a shutdown signal arrives, then drains what is in
     /// flight.
+    ///
+    /// # Errors
+    ///
+    /// When the listener's local address cannot be read, or the server stops on an
+    /// I/O error instead of a shutdown signal.
     pub async fn run(self) -> anyhow::Result<()> {
         tracing::info!("listening on {}", self.listener.local_addr()?);
         axum::serve(

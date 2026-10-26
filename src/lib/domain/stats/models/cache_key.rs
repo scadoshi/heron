@@ -2,14 +2,18 @@ use std::ops::Deref;
 
 use crate::domain::stats::models::repo_name::RepoName;
 
-/// Version of the cached payload's shape. Bump it when [`Snapshot`] or [`RepoStats`]
-/// changes, so a payload written by an older build is a miss and not a parse error.
+/// Version of the cached payloads' shape, shared by every kind of key. Bump it when
+/// [`Snapshot`], [`RepoStats`], [`Counts`] or [`Calendar`] changes, so a payload
+/// written by an older build is a miss and not a parse error.
 ///
 /// [`Snapshot`]: crate::domain::stats::models::snapshot::Snapshot
 /// [`RepoStats`]: crate::domain::stats::models::repo_stats::RepoStats
+/// [`Counts`]: crate::domain::counts::models::Counts
+/// [`Calendar`]: crate::domain::calendar::models::Calendar
 const SCHEMA_VERSION: u32 = 1;
 
-/// Key a repository's snapshot is stored under: `heron:stats:v1:owner/name`.
+/// Key a snapshot is stored under: `heron:<kind>:v<SCHEMA_VERSION>:<id>`, where the
+/// kind is `stats`, `counts` or `calendar` and the id is a repository or a login.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CacheKey(String);
 

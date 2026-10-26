@@ -26,6 +26,8 @@ use crate::domain::stats::models::repo_name::RepoName;
 
 /// GitHub rejects a request that carries no `User-Agent`.
 const USER_AGENT: &str = "heron (+https://github.com/scadoshi/heron)";
+/// The REST API version sent as `X-GitHub-Api-Version`, the dated version GitHub
+/// documents at <https://docs.github.com/rest/about-the-rest-api/api-versions>.
 const API_VERSION: &str = "2022-11-28";
 /// A tarball runs to tens of megabytes; the budget covers a slow link.
 const REQUEST_TIMEOUT: Duration = Duration::from_mins(1);
@@ -47,6 +49,10 @@ pub struct Tarball {
 impl Tarball {
     /// A source for the API at `base`, unpacking under `dir`, which is created on
     /// first use.
+    ///
+    /// # Errors
+    ///
+    /// When the HTTP client cannot be built: its TLS backend fails to initialize.
     pub fn new(base: &str, token: Option<Secret>, dir: PathBuf) -> Result<Self, reqwest::Error> {
         let mut headers = HeaderMap::new();
         headers.insert(

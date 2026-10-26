@@ -28,7 +28,11 @@ use crate::domain::stats::ports::StatsSource;
 
 /// GitHub rejects a request that carries no `User-Agent`.
 const USER_AGENT: &str = "heron (+https://github.com/scadoshi/heron)";
+/// The REST API version sent as `X-GitHub-Api-Version`, the dated version GitHub
+/// documents at <https://docs.github.com/rest/about-the-rest-api/api-versions>.
 const API_VERSION: &str = "2022-11-28";
+/// GitHub ends any API request it takes longer than ten seconds to process, so a
+/// request still open past that is not coming back.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 /// The wait before the second ask for statistics GitHub is still computing.
 const COMPUTING_PAUSE: Duration = Duration::from_secs(3);
@@ -73,7 +77,8 @@ impl GitHubError {
     }
 }
 
-/// Client for the parts of GitHub's REST API the stats need.
+/// Client for the parts of GitHub's REST API the stats need, and the GraphQL query
+/// behind the contribution calendar.
 #[derive(Debug, Clone)]
 pub struct GitHub {
     client: reqwest::Client,
@@ -87,6 +92,10 @@ pub struct GitHub {
 impl GitHub {
     /// A client for the API at `base`. With a token the rate limit is 5,000 requests
     /// an hour; without one it is 60 per IP.
+    ///
+    /// # Errors
+    ///
+    /// When the HTTP client cannot be built: its TLS backend fails to initialize.
     pub fn new(base: &str, token: Option<Secret>) -> Result<Self, reqwest::Error> {
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -349,7 +358,6 @@ impl CalendarSource for GitHub {
     }
 }
 
-/// Passes a successful response through and classifies the rest.
 /// GitHub's answer while it is still computing a `/stats` result.
 fn computing(response: &Response) -> bool {
     matches!(
@@ -358,6 +366,7 @@ fn computing(response: &Response) -> bool {
     )
 }
 
+/// Passes a successful response through and classifies the rest.
 fn accepted(response: Response) -> Result<Response, GitHubError> {
     let status = response.status();
     if status.is_success() {

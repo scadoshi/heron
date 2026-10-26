@@ -1,8 +1,10 @@
 //! Integration-test harness.
 //!
-//! Builds the real router with [`build_router`] over the real service and the real
-//! memory cache, with a stub behind the source port and a clock the test moves.
-//! Requests go through `tower::ServiceExt::oneshot`: no socket, full middleware stack.
+//! Builds the real router with `http::build_router` over the real services and
+//! whatever cache the test picks (the memory cache unless it says otherwise), with
+//! stubs behind the stats, counts and calendar source ports and a clock the test
+//! moves. Requests go through `tower::ServiceExt::oneshot`: no socket, full
+//! middleware stack.
 
 #![allow(
     dead_code,

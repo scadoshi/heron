@@ -51,6 +51,12 @@ pub struct RepoName {
 
 impl RepoName {
     /// Validates `raw`, trimmed.
+    ///
+    /// # Errors
+    ///
+    /// The first [`InvalidRepoName`] rule `raw` breaks, checked in the order the
+    /// variants are declared: the slash, empty halves, length, characters, then
+    /// `.` and `..`.
     pub fn new(raw: impl AsRef<str>) -> Result<Self, InvalidRepoName> {
         let trimmed = raw.as_ref().trim();
         let (owner, name) = trimmed

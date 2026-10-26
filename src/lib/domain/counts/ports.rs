@@ -13,7 +13,10 @@ pub trait CountsSource: Clone + Send + Sync + 'static {
     fn counts(&self, repo: &RepoName) -> impl Future<Output = Result<Counts, CountsError>> + Send;
 }
 
-/// Service port for counts.
+/// Source counts, read by the HTTP handlers and written by the sweeper task.
+///
+/// A request never measures: [`CountsService::counts`] reads what the last sweep
+/// cached, and [`CountsService::sweep`] is the only writer.
 pub trait CountsService: Clone + Send + Sync + 'static {
     /// The last measurement of `repo`, or `None` when it has not been measured.
     fn counts(&self, repo: &RepoName) -> impl Future<Output = Option<CountsReport>> + Send;

@@ -16,7 +16,7 @@ pub struct Day {
 /// The last year of contributions for one account, oldest day first.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Calendar {
-    /// The account.
+    /// GitHub login the calendar belongs to.
     pub login: String,
     /// Contributions over the whole year.
     pub total: u32,
@@ -27,7 +27,7 @@ pub struct Calendar {
 /// The calendar as the service hands it out.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CalendarReport {
-    /// The calendar.
+    /// The year as GitHub reported it, from the cache or just read.
     pub calendar: Calendar,
     /// When it was read from GitHub.
     pub fetched_at: DateTime<Utc>,

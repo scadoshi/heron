@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// what the cache stores.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Snapshot<T> {
-    /// The cached value.
+    /// What the source answered at `fetched_at`.
     pub value: T,
     /// When the value was read from its source.
     pub fetched_at: DateTime<Utc>,

@@ -59,6 +59,14 @@ pub fn encode(parts: &[&[u8]]) -> Vec<u8> {
 ///
 /// Returns the reply and how many bytes it took, or `None` when `buf` does not hold a
 /// whole frame yet. The caller reads more and calls again with the longer buffer.
+///
+/// # Errors
+///
+/// [`RespError::UnknownSigil`] for a reply type other than `+`, `-`, `:` or `$`,
+/// [`RespError::MalformedNumber`] for an integer or length that does not parse,
+/// [`RespError::MissingTerminator`] for a bulk string not followed by `\r\n`, and
+/// [`RespError::TooLarge`] for a header line past `MAX_LINE` bytes or a bulk
+/// string past `MAX_BULK`.
 pub fn parse(buf: &[u8]) -> Result<Option<(Reply, usize)>, RespError> {
     let Some((&sigil, after_sigil)) = buf.split_first() else {
         return Ok(None);

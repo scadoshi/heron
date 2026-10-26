@@ -8,7 +8,7 @@ A few primitives here are wrapped in types that guarantee something about what t
 |------|-------|-----------|------------|
 | `RepoName` | `String` | `owner/name` with exactly one slash, both halves non-empty and within GitHub's length limits, only ASCII letters, digits, `-`, `_` and `.`, and neither half `.` or `..` | `domain/stats/models/repo_name.rs` |
 | `Secret` | `String` | Never printed by `Debug` or `Display`; not empty | `domain/secret/mod.rs` |
-| `CacheKey` | `String` | Built only from a `RepoName` and the schema version | `domain/stats/models/cache_key.rs` |
+| `CacheKey` | `String` | Built only by its constructors: a kind (`stats`, `counts` or `calendar`), the schema version, and a `RepoName` or, for the calendar, a login | `domain/stats/models/cache_key.rs` |
 
 Counts stay plain integers. `commits: u64` is the intended shape. Do not add `CommitCount`.
 

@@ -17,6 +17,10 @@ pub struct Secret(String);
 
 impl Secret {
     /// Wraps `raw`, trimmed.
+    ///
+    /// # Errors
+    ///
+    /// [`InvalidSecret::Empty`] when `raw` is empty or only whitespace.
     pub fn new(raw: impl AsRef<str>) -> Result<Self, InvalidSecret> {
         let trimmed = raw.as_ref().trim();
         if trimmed.is_empty() {

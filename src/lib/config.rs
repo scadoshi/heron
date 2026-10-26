@@ -78,7 +78,7 @@ pub enum CacheBackend {
     Layered(SocketAddr),
 }
 
-/// Application configuration.
+/// Everything heron reads from the environment, validated once at startup.
 #[derive(Debug)]
 pub struct Config {
     /// Address to bind the HTTP server to (e.g. `127.0.0.1:3100`).

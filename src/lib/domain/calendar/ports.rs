@@ -13,7 +13,12 @@ pub trait CalendarSource: Clone + Send + Sync + 'static {
     -> impl Future<Output = Result<Calendar, CalendarError>> + Send;
 }
 
-/// Service port for the calendar.
+/// The configured account's calendar, as `GET /stats` serves it.
+///
+/// Reads through the cache. Past freshness one caller refreshes from the
+/// [`CalendarSource`] while the others wait for its answer, and when that refresh
+/// fails the cached calendar is served with `stale` set. With nothing cached, the
+/// source's error is the answer.
 pub trait CalendarService: Clone + Send + Sync + 'static {
     /// The configured account's calendar, from cache when fresh.
     fn calendar(&self) -> impl Future<Output = Result<CalendarReport, CalendarError>> + Send;

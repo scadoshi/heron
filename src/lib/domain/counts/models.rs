@@ -9,7 +9,7 @@ use crate::domain::stats::models::repo_name::RepoName;
 pub struct CountsReport {
     /// The repository these numbers describe.
     pub repo: RepoName,
-    /// The numbers.
+    /// What the last sweep counted in the repository's source.
     pub counts: Counts,
     /// When the source was measured.
     pub measured_at: DateTime<Utc>,

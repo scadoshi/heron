@@ -66,7 +66,7 @@ fn rate_limited(error: GovernorError) -> Response<Body> {
 const STATS_CACHE_CONTROL: &str = "public, max-age=300";
 
 /// Sets `Cache-Control` on successful responses only. An error held at the edge for
-/// five minutes outlives whatever caused it.
+/// [`STATS_CACHE_CONTROL`]'s `max-age` outlives whatever caused it.
 fn cache_successes(response: &Response<Body>) -> Option<HeaderValue> {
     response
         .status()
@@ -79,6 +79,11 @@ type CacheHeaderFn = fn(&Response<Body>) -> Option<HeaderValue>;
 // == routes ==
 
 /// Every route. All are public and read-only.
+///
+/// # Errors
+///
+/// When the rate limiter rejects its configuration, which it does for a zero
+/// `BURST` or `REPLENISH_SECS`.
 pub fn routes() -> anyhow::Result<Router<AppState>> {
     let limit = Arc::new(
         GovernorConfigBuilder::default()

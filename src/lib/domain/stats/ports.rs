@@ -43,7 +43,13 @@ pub trait StatsCache: Clone + Send + Sync + 'static {
     fn ping(&self) -> impl Future<Output = Result<(), CacheError>> + Send;
 }
 
-/// Service port for stats.
+/// Stats for the allowlisted repositories, read by the HTTP handlers and by the
+/// counts sweep for `pushed_at`.
+///
+/// Reads through the cache. Past freshness one caller per repository refreshes
+/// from the [`StatsSource`] while the others wait for its answer. When the source
+/// is rate limited or unreachable the cached value is served with `stale` set; a
+/// repository GitHub reports private or missing is never served stale.
 pub trait StatsService: Clone + Send + Sync + 'static {
     /// Stats for one allowlisted repository, from cache when fresh.
     fn repo_stats(

@@ -44,7 +44,12 @@ pub struct StellerCache {
 }
 
 impl StellerCache {
-    /// A cache over the server at `address`, which must be loopback.
+    /// A cache over the server at `address`, which must be loopback. Nothing is
+    /// connected until the first command.
+    ///
+    /// # Errors
+    ///
+    /// [`NotLoopback`] when `address` is not `127.0.0.0/8` or `::1`.
     pub fn new(address: SocketAddr) -> Result<Self, NotLoopback> {
         if !address.ip().is_loopback() {
             return Err(NotLoopback(address));

@@ -30,7 +30,7 @@ pub struct RepoStats {
     pub repo: RepoName,
     /// Commits reachable from the default branch.
     pub commits: u64,
-    /// Stargazers.
+    /// How many GitHub accounts have starred the repository.
     pub stars: u32,
     /// Name of the default branch.
     pub default_branch: String,
@@ -52,7 +52,7 @@ pub struct RepoStats {
 /// One repository's stats as the service hands them out.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RepoReport {
-    /// The numbers.
+    /// What GitHub reported, from the cache or just read.
     pub stats: RepoStats,
     /// When they were read from GitHub.
     pub fetched_at: DateTime<Utc>,

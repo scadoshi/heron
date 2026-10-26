@@ -5,7 +5,8 @@ use std::future::Future;
 use crate::domain::BoxFuture;
 use crate::domain::health::models::HealthCheckFailed;
 
-/// Service port for health checks.
+/// What `GET /health/cache` asks: which cache backend runs and whether it answers.
+/// Nothing is cached; every call pings.
 pub trait HealthService: Clone + Send + Sync + 'static {
     /// Name of the cache backend in use: `memory`, `steller`, or `layered`.
     fn cache_backend(&self) -> &'static str;

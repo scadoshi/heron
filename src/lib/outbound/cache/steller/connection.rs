@@ -36,6 +36,12 @@ pub struct Connection {
 
 impl Connection {
     /// Connects to `address`, giving up after `deadline`.
+    ///
+    /// # Errors
+    ///
+    /// [`ConnectionError::TimedOut`] when `deadline` passes first, and
+    /// [`ConnectionError::Io`] when the connection is refused or `TCP_NODELAY`
+    /// cannot be set.
     pub async fn open(address: SocketAddr, deadline: Duration) -> Result<Self, ConnectionError> {
         let stream = timeout(deadline, TcpStream::connect(address))
             .await
@@ -52,6 +58,13 @@ impl Connection {
     /// Sends `command` and reads one reply, giving up after `deadline`.
     ///
     /// After any error the connection is in an unknown state and must be dropped.
+    ///
+    /// # Errors
+    ///
+    /// [`ConnectionError::TimedOut`] when `deadline` passes before a whole reply,
+    /// [`ConnectionError::Io`] when writing or reading fails,
+    /// [`ConnectionError::Closed`] when the server closes the connection first, and
+    /// [`ConnectionError::Protocol`] when the reply breaks RESP.
     pub async fn roundtrip(
         &mut self,
         command: &[u8],

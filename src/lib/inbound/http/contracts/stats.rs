@@ -59,7 +59,8 @@ impl From<CountsReport> for HttpCounts {
 pub struct HttpWeekCommits {
     /// The Sunday the week starts on, as `YYYY-MM-DD`.
     pub week: String,
-    /// Commits that week.
+    /// Commits on the default branch that week. Under `totals`, summed across the
+    /// repositories.
     pub commits: u32,
 }
 
@@ -79,7 +80,7 @@ pub struct HttpRepoStats {
     pub repo: String,
     /// Commits reachable from the default branch.
     pub commits: u64,
-    /// Stargazers.
+    /// How many GitHub accounts have starred the repository.
     pub stars: u32,
     /// Name of the default branch.
     pub default_branch: String,
@@ -168,7 +169,8 @@ impl From<Totals> for HttpTotals {
 pub struct HttpDay {
     /// `YYYY-MM-DD`.
     pub date: String,
-    /// Contributions that day.
+    /// Contributions that day as GitHub counts them: commits, issues, pull requests
+    /// and reviews.
     pub count: u32,
     /// 0 for none through 4 for the top quartile, GitHub's own shading.
     pub level: u8,
@@ -188,7 +190,7 @@ impl From<Day> for HttpDay {
 /// the profile page draws it.
 #[derive(Debug, Serialize)]
 pub struct HttpCalendar {
-    /// The account.
+    /// GitHub login the calendar belongs to.
     pub login: String,
     /// Contributions over the whole year.
     pub total: u32,

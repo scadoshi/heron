@@ -52,7 +52,9 @@ async fn main() -> ExitCode {
 async fn run() -> anyhow::Result<()> {
     let config = Config::from_env()?;
 
-    // `RUST_LOG` from the process wins. The value from `.env` covers when it is unset.
+    // `RUST_LOG` comes from the environment, which dotenvy has already filled from
+    // `.env`. When it is unset or does not parse, the filter is built from
+    // `config.rust_log`, which defaults to `info`.
     let filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.rust_log));
     tracing_subscriber::registry()

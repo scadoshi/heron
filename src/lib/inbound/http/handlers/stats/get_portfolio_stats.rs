@@ -8,6 +8,11 @@ use crate::inbound::http::{ApiError, AppState};
 /// Stats for every configured repository, each with its latest source counts,
 /// and the account's contribution calendar. The calendar cannot fail the
 /// request: without one the field is `null`.
+///
+/// # Errors
+///
+/// Only when no repository resolved: the error of whichever failed last, mapped by
+/// [`ApiError`]'s `From<StatsError>` to a 404 or a 503.
 pub async fn get_portfolio_stats(
     State(state): State<AppState>,
 ) -> Result<Json<HttpPortfolioStats>, ApiError> {
