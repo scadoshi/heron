@@ -28,7 +28,7 @@ pub async fn cache_health(State(state): State<AppState>) -> Json<HttpCacheHealth
     let status = match state.health_service.check_cache().await {
         Ok(()) => "healthy",
         Err(error) => {
-            tracing::warn!("{error}");
+            tracing::warn!("cache ping failed: {error}");
             "unreachable"
         }
     };

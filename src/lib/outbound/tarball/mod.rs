@@ -78,7 +78,6 @@ impl Tarball {
 
     /// Streams the tarball of `repo` to `archive`, a chunk at a time.
     async fn download(&self, repo: &RepoName, archive: &Path) -> Result<(), CountsError> {
-        let upstream = |error: anyhow::Error| CountsError::Upstream(error);
         let request = self
             .client
             .get(format!("{}/repos/{repo}/tarball", self.base));
@@ -99,7 +98,7 @@ impl Tarball {
         let mut file = tokio::fs::File::create(archive)
             .await
             .with_context(|| format!("creating {}", archive.display()))
-            .map_err(upstream)?;
+            .map_err(CountsError::Upstream)?;
         while let Some(chunk) = response
             .chunk()
             .await
@@ -108,12 +107,12 @@ impl Tarball {
             file.write_all(&chunk)
                 .await
                 .with_context(|| format!("writing {}", archive.display()))
-                .map_err(upstream)?;
+                .map_err(CountsError::Upstream)?;
         }
         file.flush()
             .await
             .with_context(|| format!("writing {}", archive.display()))
-            .map_err(upstream)
+            .map_err(CountsError::Upstream)
     }
 }
 
@@ -137,7 +136,7 @@ impl CountsSource for Tarball {
         tokio::task::spawn_blocking(move || measure_archive(&archive, &work, &repo))
             .await
             .map_err(|error| {
-                CountsError::Upstream(anyhow::anyhow!("measure task failed: {error}"))
+                CountsError::Upstream(anyhow::Error::new(error).context("measure task failed"))
             })?
     }
 }
@@ -159,20 +158,19 @@ fn remove(work: &Path) {
 }
 
 fn unpack_and_measure(archive: &Path, work: &Path, repo: &RepoName) -> Result<Counts, CountsError> {
-    let upstream = |error: anyhow::Error| CountsError::Upstream(error);
     let file = fs::File::open(archive)
         .with_context(|| format!("opening {}", archive.display()))
-        .map_err(upstream)?;
+        .map_err(CountsError::Upstream)?;
     tar::Archive::new(GzDecoder::new(BufReader::new(file)))
         .unpack(work)
         .with_context(|| format!("unpacking the tarball of {repo}"))
-        .map_err(upstream)?;
+        .map_err(CountsError::Upstream)?;
     let checkout = single_directory_in(work)
         .with_context(|| format!("the tarball of {repo} did not hold one directory"))
-        .map_err(upstream)?;
+        .map_err(CountsError::Upstream)?;
     measure::measure(&checkout)
         .with_context(|| format!("measuring {repo}"))
-        .map_err(upstream)?
+        .map_err(CountsError::Upstream)?
         .ok_or_else(|| CountsError::NotMeasurable(repo.clone()))
 }
 

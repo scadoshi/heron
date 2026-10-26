@@ -209,9 +209,9 @@ impl<S: StatsSource, C: StatsCache, K: Clock> StatsService for Service<S, C, K> 
                     last_error = Some(error);
                 }
                 Err(error) => {
-                    last_error = Some(StatsError::Upstream(anyhow::anyhow!(
-                        "stats task failed: {error}"
-                    )));
+                    last_error = Some(StatsError::Upstream(
+                        anyhow::Error::new(error).context("stats task failed"),
+                    ));
                 }
             }
         }

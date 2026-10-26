@@ -23,6 +23,9 @@ impl<C: StatsCache> HealthService for Service<C> {
     }
 
     async fn check_cache(&self) -> Result<(), HealthCheckFailed> {
-        self.cache.ping().await.map_err(|e| HealthCheckFailed(e.0))
+        self.cache
+            .ping()
+            .await
+            .map_err(|error| HealthCheckFailed(anyhow::Error::new(error)))
     }
 }

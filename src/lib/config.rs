@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use anyhow::{Context, anyhow, bail};
+use anyhow::{Context, bail};
 use axum::http::HeaderValue;
 
 use crate::domain::secret::Secret;
@@ -256,8 +256,8 @@ fn steller_address(
     required: &impl Fn(&str) -> anyhow::Result<String>,
 ) -> anyhow::Result<SocketAddr> {
     let raw = required(STELLER_ADDRESS_KEY)?;
-    let address: SocketAddr = raw.trim().parse().map_err(|_| {
-        anyhow!("invalid {STELLER_ADDRESS_KEY}: {raw:?} (expected ip:port, such as 127.0.0.1:3000)")
+    let address: SocketAddr = raw.trim().parse().with_context(|| {
+        format!("invalid {STELLER_ADDRESS_KEY}: {raw:?} (expected ip:port, such as 127.0.0.1:3000)")
     })?;
     if !address.ip().is_loopback() {
         bail!(
