@@ -1,8 +1,12 @@
 //! Two caches stacked: a primary, and a secondary that covers for it.
 
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::fmt;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
+
+use anyhow::anyhow;
 
 use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::errors::CacheError;
@@ -20,7 +24,11 @@ const PRIMARY_COOLDOWN: Duration = Duration::from_secs(30);
 /// so the secondary holds what was last served when the primary goes away. A write
 /// fails only when both do. A primary that fails is skipped for `PRIMARY_COOLDOWN`, so
 /// a hung one costs one timeout every cooldown instead of one on every call.
-#[derive(Debug, Clone)]
+///
+/// A key written while the primary missed the write is read from the secondary
+/// until a later write reaches the primary, so a primary that comes back with an
+/// older value does not replace the newer one.
+#[derive(Clone)]
 pub struct LayeredCache<P, S> {
     primary: P,
     secondary: S,
@@ -36,6 +44,20 @@ pub struct LayeredCache<P, S> {
     started: Instant,
     /// Milliseconds after `started` before which a down primary is not asked.
     retry_at: Arc<AtomicU64>,
+    /// Keys whose newest value only the secondary holds.
+    ahead_of_primary: Arc<Mutex<HashSet<String>>>,
+}
+
+/// Prints the layers and settings; the key set is not locked to print it.
+impl<P: fmt::Debug, S: fmt::Debug> fmt::Debug for LayeredCache<P, S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("LayeredCache")
+            .field("primary", &self.primary)
+            .field("secondary", &self.secondary)
+            .field("retain", &self.retain)
+            .field("cooldown", &self.cooldown)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<P: Cache, S: Cache> LayeredCache<P, S> {
@@ -49,7 +71,26 @@ impl<P: Cache, S: Cache> LayeredCache<P, S> {
             cooldown: PRIMARY_COOLDOWN,
             started: Instant::now(),
             retry_at: Arc::new(AtomicU64::new(0)),
+            ahead_of_primary: Arc::new(Mutex::new(HashSet::new())),
         }
+    }
+
+    /// The keys whose newest value only the secondary holds.
+    fn ahead(&self) -> Result<MutexGuard<'_, HashSet<String>>, CacheError> {
+        self.ahead_of_primary
+            .lock()
+            .map_err(|_| CacheError(anyhow!("layered cache key set lock poisoned")))
+    }
+
+    /// Records whether the secondary holds a newer value for `key` than the primary.
+    fn set_ahead(&self, key: &CacheKey, ahead: bool) -> Result<(), CacheError> {
+        let mut keys = self.ahead()?;
+        if ahead {
+            keys.insert(key.to_string());
+        } else {
+            keys.remove(&**key);
+        }
+        Ok(())
     }
 
     fn elapsed_ms(&self) -> u64 {
@@ -111,6 +152,18 @@ impl<P: Cache, S: Cache> Cache for LayeredCache<P, S> {
         if self.primary_resting() {
             return self.secondary.get(key).await;
         }
+        let ahead = self.ahead()?.contains(&**key);
+        if ahead {
+            match self.secondary.get(key).await {
+                Ok(Some(value)) => return Ok(Some(value)),
+                // The newer copy is gone, so the primary's is the newest there is.
+                Ok(None) => self.set_ahead(key, false)?,
+                Err(error) => tracing::debug!(
+                    "{} failed a read it holds the newest value for: {error}",
+                    self.secondary.backend()
+                ),
+            }
+        }
         match self.primary.get(key).await {
             Ok(Some(value)) => {
                 self.primary_answered();
@@ -125,7 +178,8 @@ impl<P: Cache, S: Cache> Cache for LayeredCache<P, S> {
 
     async fn set(&self, key: &CacheKey, value: &[u8], retain: Duration) -> Result<(), CacheError> {
         if self.primary_resting() {
-            return self.secondary.set(key, value, retain).await;
+            self.secondary.set(key, value, retain).await?;
+            return self.set_ahead(key, true);
         }
         let primary = self.primary.set(key, value, retain).await;
         match &primary {
@@ -133,6 +187,7 @@ impl<P: Cache, S: Cache> Cache for LayeredCache<P, S> {
             Err(error) => self.primary_failed(error),
         }
         let secondary = self.secondary.set(key, value, retain).await;
+        self.set_ahead(key, primary.is_err() && secondary.is_ok())?;
         primary.or(secondary)
     }
 
@@ -197,7 +252,8 @@ mod tests {
 
         tokio::time::sleep(Duration::from_millis(250)).await;
         primary.fail_reads(false);
-        cache.get(&key()).await.unwrap();
+        let other = CacheKey::for_repo(&repo("a/c"));
+        cache.get(&other).await.unwrap();
         assert_eq!(
             primary.calls(),
             2,
@@ -249,6 +305,44 @@ mod tests {
         assert_eq!(
             secondary.get(&key()).await.unwrap().as_deref(),
             Some(&b"v"[..])
+        );
+    }
+
+    #[tokio::test]
+    async fn a_write_the_primary_missed_is_not_undone_when_it_recovers() {
+        let (cache, primary, secondary) = layered();
+        primary.put(&key(), b"old");
+        primary.fail_writes(true);
+        cache
+            .set(&key(), b"new", Duration::from_mins(1))
+            .await
+            .unwrap();
+        primary.fail_writes(false);
+
+        let read = cache.get(&key()).await.unwrap();
+        assert_eq!(
+            read.as_deref(),
+            Some(&b"new"[..]),
+            "the recovered primary's older value won"
+        );
+        let held = secondary.get(&key()).await.unwrap();
+        assert_eq!(
+            held.as_deref(),
+            Some(&b"new"[..]),
+            "the newer copy was overwritten"
+        );
+
+        cache
+            .set(&key(), b"newer", Duration::from_mins(1))
+            .await
+            .unwrap();
+        let read = cache.get(&key()).await.unwrap();
+        assert_eq!(read.as_deref(), Some(&b"newer"[..]));
+        let stored = primary.get(&key()).await.unwrap();
+        assert_eq!(
+            stored.as_deref(),
+            Some(&b"newer"[..]),
+            "a write reaching the primary again"
         );
     }
 

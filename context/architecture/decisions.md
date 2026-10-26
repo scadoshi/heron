@@ -158,7 +158,7 @@ When the primary fails a read or a write, `LayeredCache` leaves it alone for `PR
 
 **Why:** a steller that accepts connections and never answers costs the adapter its timeouts on every call, and every call waits its turn on the one connection. A `/stats` request makes several cache calls per repository, so a hung steller pushed it past the request timeout. Resting the primary turns that into one slow call every 30 seconds.
 
-**Cost:** writes made while the primary rests reach only the memory layer, so steller misses them until the next refresh writes again.
+**Cost:** writes made while the primary rests reach only the memory layer, so steller misses them until the next refresh writes again. Until then those keys are read from memory, so a steller that comes back holding an older value cannot replace the newer one.
 
 ---
 
