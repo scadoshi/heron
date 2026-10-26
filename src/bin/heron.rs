@@ -77,33 +77,37 @@ async fn main() -> anyhow::Result<()> {
 
     // Each arm builds services over a different cache type. Erasing them here is
     // what lets everything past this point hold one type.
-    let (stats_service, health_service, counts_service, calendar_service) =
-        match config.cache_backend {
-            CacheBackend::Memory => services(
-                github,
-                tarball,
-                MemoryCache::new(),
-                settings,
-                counts_settings,
-                calendar_settings,
-            ),
-            CacheBackend::Steller(address) => services(
-                github,
-                tarball,
-                StellerCache::new(address)?,
-                settings,
-                counts_settings,
-                calendar_settings,
-            ),
-            CacheBackend::Layered(address) => services(
-                github,
-                tarball,
-                LayeredCache::new(StellerCache::new(address)?, MemoryCache::new(), retain),
-                settings,
-                counts_settings,
-                calendar_settings,
-            ),
-        };
+    let Services {
+        stats: stats_service,
+        health: health_service,
+        counts: counts_service,
+        calendar: calendar_service,
+    } = match config.cache_backend {
+        CacheBackend::Memory => services(
+            github,
+            tarball,
+            MemoryCache::new(),
+            settings,
+            counts_settings,
+            calendar_settings,
+        ),
+        CacheBackend::Steller(address) => services(
+            github,
+            tarball,
+            StellerCache::new(address)?,
+            settings,
+            counts_settings,
+            calendar_settings,
+        ),
+        CacheBackend::Layered(address) => services(
+            github,
+            tarball,
+            LayeredCache::new(StellerCache::new(address)?, MemoryCache::new(), retain),
+            settings,
+            counts_settings,
+            calendar_settings,
+        ),
+    };
 
     tokio::spawn(sweeper(Arc::clone(&counts_service), config.counts_sweep));
 
@@ -121,12 +125,13 @@ async fn main() -> anyhow::Result<()> {
     server.run().await
 }
 
-type Services = (
-    Arc<dyn ErasedStatsService>,
-    Arc<dyn ErasedHealthService>,
-    Arc<dyn ErasedCountsService>,
-    Arc<dyn ErasedCalendarService>,
-);
+/// The four services over one cache, erased.
+struct Services {
+    stats: Arc<dyn ErasedStatsService>,
+    health: Arc<dyn ErasedHealthService>,
+    counts: Arc<dyn ErasedCountsService>,
+    calendar: Arc<dyn ErasedCalendarService>,
+}
 
 fn services<C: Cache>(
     github: GitHub,
@@ -150,12 +155,12 @@ fn services<C: Cache>(
         SystemClock,
         counts_settings,
     );
-    (
-        Arc::new(stats),
-        Arc::new(health::services::Service::new(cache)),
-        Arc::new(counts),
-        Arc::new(calendar),
-    )
+    Services {
+        stats: Arc::new(stats),
+        health: Arc::new(health::services::Service::new(cache)),
+        counts: Arc::new(counts),
+        calendar: Arc::new(calendar),
+    }
 }
 
 /// Sweeps once at startup, then every `interval`. A pass that measured nothing is
