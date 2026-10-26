@@ -1,6 +1,5 @@
 //! Composition root. Wires adapters into services and starts the HTTP server.
 
-use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -26,26 +25,10 @@ use tracing_subscriber::util::SubscriberInitExt;
 #[global_allocator]
 static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
+/// An error ends the process with its chain on stderr, since tracing may not be up
+/// yet, and a non-zero exit code, which systemd reads to decide whether to restart.
 #[tokio::main]
-async fn main() -> ExitCode {
-    match run().await {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(error) => {
-            // Tracing may not be up yet, and systemd reads the exit code to decide
-            // whether to restart.
-            #[expect(
-                clippy::print_stderr,
-                reason = "tracing may not be up yet, so the failure goes to stderr directly"
-            )]
-            {
-                eprintln!("heron failed: {error:#}");
-            }
-            ExitCode::FAILURE
-        }
-    }
-}
-
-async fn run() -> anyhow::Result<()> {
+async fn main() -> anyhow::Result<()> {
     let config = Config::from_env()?;
 
     // `RUST_LOG` comes from the environment, which dotenvy has already filled from
