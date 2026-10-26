@@ -14,7 +14,7 @@ use crate::domain::login::Login;
 use crate::domain::secret::Secret;
 use crate::domain::stats::models::repo_name::RepoName;
 
-/// Address to bind the HTTP server to.
+/// Address to bind the HTTP server to, as ip:port.
 const BIND_ADDRESS_KEY: &str = "BIND_ADDRESS";
 
 /// Origins allowed by CORS, comma-separated.
@@ -82,8 +82,9 @@ pub enum CacheBackend {
 /// Everything heron reads from the environment, validated once at startup.
 #[derive(Debug)]
 pub struct Config {
-    /// Address to bind the HTTP server to (e.g. `127.0.0.1:3100`).
-    pub bind_address: String,
+    /// Address to bind the HTTP server to, an IP and a port such as `127.0.0.1:3100`.
+    /// A hostname is refused at startup.
+    pub bind_address: SocketAddr,
 
     /// Origins allowed by CORS.
     pub allowed_origins: Vec<HeaderValue>,
@@ -152,7 +153,12 @@ impl Config {
             optional(key).with_context(|| format!("failed to get variable from env: {key}"))
         };
 
-        let bind_address = required(BIND_ADDRESS_KEY)?;
+        let raw_bind_address = required(BIND_ADDRESS_KEY)?;
+        let bind_address: SocketAddr = raw_bind_address.trim().parse().with_context(|| {
+            format!(
+                "invalid {BIND_ADDRESS_KEY}: {raw_bind_address:?} (expected ip:port, such as 127.0.0.1:3100)"
+            )
+        })?;
 
         let allowed_origins: Vec<HeaderValue> = required(ALLOWED_ORIGINS_KEY)?
             .split(',')
@@ -313,7 +319,7 @@ mod tests {
     #[test]
     fn the_required_variables_alone_are_enough() {
         let config = load(&[]).unwrap();
-        assert_eq!(config.bind_address, "127.0.0.1:3100");
+        assert_eq!(config.bind_address.to_string(), "127.0.0.1:3100");
         assert_eq!(config.allowed_origins.len(), 2);
         assert_eq!(config.allowed_origins[1], "http://localhost:8080");
         assert_eq!(&*config.github_repos[1], "scadoshi/chickadee");
@@ -467,6 +473,17 @@ mod tests {
         let config = load(&[("GITHUB_LOGIN", " someone "), ("CALENDAR_FRESH_SECS", "60")]).unwrap();
         assert_eq!(config.github_login.as_str(), "someone");
         assert_eq!(config.calendar_fresh, Duration::from_mins(1));
+    }
+
+    #[test]
+    fn a_bind_address_must_be_an_ip_and_port() {
+        for address in ["localhost:8080", "127.0.0.1", "3100"] {
+            let message = error(&[("BIND_ADDRESS", address)]);
+            assert!(message.contains("BIND_ADDRESS"), "{address}: {message}");
+            assert!(message.contains("expected ip:port"), "{address}: {message}");
+        }
+        let config = load(&[("BIND_ADDRESS", "[::1]:3100")]).unwrap();
+        assert_eq!(config.bind_address.to_string(), "[::1]:3100");
     }
 
     #[test]

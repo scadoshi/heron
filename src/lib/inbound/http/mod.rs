@@ -6,6 +6,7 @@ pub mod middleware;
 pub mod routes;
 
 use std::fmt;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -146,9 +147,9 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Bind address and CORS origins for the HTTP server.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HttpServerConfig<'a> {
+pub struct HttpServerConfig {
     /// Address to bind the TCP listener to.
-    pub bind_address: &'a str,
+    pub bind_address: SocketAddr,
     /// Origins permitted by CORS policy.
     pub allowed_origins: Vec<HeaderValue>,
 }
@@ -258,14 +259,14 @@ impl HttpServer {
     /// # Errors
     ///
     /// When the rate limit configuration is rejected (see [`build_router`]), or
-    /// the listener cannot bind `config.bind_address`: the address does not
-    /// resolve, is already in use, or is not this host's to bind.
+    /// the listener cannot bind `config.bind_address`: the address is already in
+    /// use, or is not this host's to bind.
     pub async fn new(
         stats_service: Arc<dyn ErasedStatsService>,
         health_service: Arc<dyn ErasedHealthService>,
         counts_service: Arc<dyn ErasedCountsService>,
         calendar_service: Arc<dyn ErasedCalendarService>,
-        config: HttpServerConfig<'_>,
+        config: HttpServerConfig,
     ) -> anyhow::Result<Self> {
         let state = AppState {
             stats_service,
@@ -274,7 +275,7 @@ impl HttpServer {
             calendar_service,
         };
         let router = build_router(state, config.allowed_origins)?;
-        let listener = net::TcpListener::bind(&config.bind_address)
+        let listener = net::TcpListener::bind(config.bind_address)
             .await
             .with_context(|| format!("failed to listen on {}", config.bind_address))?;
         Ok(Self { router, listener })

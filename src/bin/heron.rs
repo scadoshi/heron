@@ -117,7 +117,7 @@ async fn main() -> anyhow::Result<()> {
         counts_service,
         calendar_service,
         HttpServerConfig {
-            bind_address: &config.bind_address,
+            bind_address: config.bind_address,
             allowed_origins: config.allowed_origins,
         },
     )
