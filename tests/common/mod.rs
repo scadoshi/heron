@@ -110,7 +110,7 @@ impl StubSource {
 }
 
 impl StatsSource for StubSource {
-    fn repo_stats(
+    fn fetch_repo_stats(
         &self,
         repo: &RepoName,
     ) -> impl Future<Output = Result<RepoStats, StatsError>> + Send {
@@ -178,7 +178,10 @@ impl StubCounts {
 }
 
 impl CountsSource for StubCounts {
-    fn counts(&self, _: &RepoName) -> impl Future<Output = Result<Counts, CountsError>> + Send {
+    fn fetch_counts(
+        &self,
+        _: &RepoName,
+    ) -> impl Future<Output = Result<Counts, CountsError>> + Send {
         future::ready(Ok(Self::counts()))
     }
 }
@@ -190,7 +193,7 @@ impl CountsSource for StubCounts {
 pub struct StubCalendar;
 
 impl CalendarSource for StubCalendar {
-    fn calendar(
+    fn fetch_calendar(
         &self,
         login: &str,
     ) -> impl Future<Output = Result<Calendar, CalendarError>> + Send {

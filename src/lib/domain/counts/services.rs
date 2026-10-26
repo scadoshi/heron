@@ -109,7 +109,7 @@ impl<S: CountsSource, C: StatsCache, T: StatsService, K: Clock> Service<S, C, T,
     /// When GitHub last saw a push to `repo`, from the stats service's cached or
     /// fresh answer. `None` when stats could not be read.
     async fn pushed_at(&self, repo: &RepoName) -> Option<DateTime<Utc>> {
-        match self.stats.repo_stats(repo).await {
+        match self.stats.fetch_repo_stats(repo).await {
             Ok(report) => report.stats.pushed_at,
             Err(error) => {
                 tracing::warn!("stats for {repo} are unavailable to the sweep: {error}");
@@ -119,7 +119,7 @@ impl<S: CountsSource, C: StatsCache, T: StatsService, K: Clock> Service<S, C, T,
     }
 
     async fn measure(&self, repo: &RepoName, key: &CacheKey) -> Result<(), CountsError> {
-        let counts = self.source.counts(repo).await?;
+        let counts = self.source.fetch_counts(repo).await?;
         let fetched_at = self.clock.now();
         let retain = TimeDelta::from_std(self.retain).unwrap_or(TimeDelta::MAX);
         let snapshot = Snapshot {
@@ -135,7 +135,7 @@ impl<S: CountsSource, C: StatsCache, T: StatsService, K: Clock> Service<S, C, T,
 impl<S: CountsSource, C: StatsCache, T: StatsService, K: Clock> CountsService
     for Service<S, C, T, K>
 {
-    async fn counts(&self, repo: &RepoName) -> Option<CountsReport> {
+    async fn fetch_counts(&self, repo: &RepoName) -> Option<CountsReport> {
         let snapshot = self.read(&CacheKey::for_counts(repo)).await?;
         Some(CountsReport {
             repo: repo.clone(),
@@ -219,7 +219,7 @@ mod tests {
         assert_eq!(sweep.failed.len(), 0);
         assert_eq!(source.calls(), 2);
         assert_eq!(cache.last_retain(), Some(Duration::from_hours(168)));
-        let report = service.counts(&repo("a/b")).await.unwrap();
+        let report = service.fetch_counts(&repo("a/b")).await.unwrap();
         assert_eq!(report.counts.lines, 100);
         assert_eq!(report.measured_at, clock.now());
     }
@@ -246,7 +246,12 @@ mod tests {
         assert_eq!(sweep.measured, [repo("a/b")]);
         assert_eq!(source.calls(), 2);
         assert_eq!(
-            service.counts(&repo("a/b")).await.unwrap().counts.lines,
+            service
+                .fetch_counts(&repo("a/b"))
+                .await
+                .unwrap()
+                .counts
+                .lines,
             250
         );
     }
@@ -261,7 +266,12 @@ mod tests {
         let sweep = service.sweep().await;
         assert_eq!(sweep.failed.len(), 1);
         assert_eq!(
-            service.counts(&repo("a/b")).await.unwrap().counts.lines,
+            service
+                .fetch_counts(&repo("a/b"))
+                .await
+                .unwrap()
+                .counts
+                .lines,
             100
         );
     }
@@ -289,8 +299,8 @@ mod tests {
     #[tokio::test]
     async fn counts_only_read_the_cache() {
         let (service, source, _, _, _) = service(&["a/b"]);
-        assert!(service.counts(&repo("a/b")).await.is_none());
-        assert!(service.counts(&repo("x/y")).await.is_none());
+        assert!(service.fetch_counts(&repo("a/b")).await.is_none());
+        assert!(service.fetch_counts(&repo("x/y")).await.is_none());
         assert_eq!(source.calls(), 0);
     }
 

@@ -133,7 +133,7 @@ impl<S: StatsSource, C: StatsCache, K: Clock> Service<S, C, K> {
             return Ok(report);
         }
 
-        match self.source.repo_stats(repo).await {
+        match self.source.fetch_repo_stats(repo).await {
             Ok(mut stats) => {
                 // GitHub computes contributor and commit statistics in the
                 // background and answers without them while it works, and
@@ -183,11 +183,11 @@ impl<S: StatsSource, C: StatsCache, K: Clock> Service<S, C, K> {
 }
 
 impl<S: StatsSource, C: StatsCache, K: Clock> StatsService for Service<S, C, K> {
-    async fn repo_stats(&self, repo: &RepoName) -> Result<RepoReport, StatsError> {
+    async fn fetch_repo_stats(&self, repo: &RepoName) -> Result<RepoReport, StatsError> {
         self.resolve(repo).await
     }
 
-    async fn portfolio_stats(&self) -> Result<PortfolioStats, StatsError> {
+    async fn fetch_portfolio_stats(&self) -> Result<PortfolioStats, StatsError> {
         let mut tasks = JoinSet::new();
         for (position, repo) in self.repos.iter().cloned().enumerate() {
             let service = self.clone();
@@ -265,9 +265,9 @@ mod tests {
     #[tokio::test]
     async fn a_fresh_snapshot_is_served_without_calling_the_source() {
         let (service, source, _, clock) = service(&["a/b"]);
-        service.repo_stats(&repo("a/b")).await.unwrap();
+        service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         clock.advance(FRESH_SECS - 1);
-        let report = service.repo_stats(&repo("a/b")).await.unwrap();
+        let report = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         assert_eq!(source.calls(), 1);
         assert!(!report.stale);
     }
@@ -275,10 +275,10 @@ mod tests {
     #[tokio::test]
     async fn a_stale_snapshot_triggers_one_refresh() {
         let (service, source, _, clock) = service(&["a/b"]);
-        service.repo_stats(&repo("a/b")).await.unwrap();
+        service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         clock.advance(FRESH_SECS);
         source.set_commits(99);
-        let report = service.repo_stats(&repo("a/b")).await.unwrap();
+        let report = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         assert_eq!(source.calls(), 2);
         assert_eq!(report.stats.commits, 99);
         assert_eq!(report.fetched_at, clock.now());
@@ -287,11 +287,11 @@ mod tests {
     #[tokio::test]
     async fn a_source_failure_serves_the_stale_snapshot_and_marks_it() {
         let (service, source, _, clock) = service(&["a/b"]);
-        let first = service.repo_stats(&repo("a/b")).await.unwrap();
+        let first = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         clock.advance(FRESH_SECS);
         for failure in [Failure::Upstream, Failure::RateLimited] {
             source.fail_with(failure);
-            let report = service.repo_stats(&repo("a/b")).await.unwrap();
+            let report = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
             assert!(report.stale);
             assert_eq!(report.stats, first.stats);
             assert_eq!(report.fetched_at, first.fetched_at);
@@ -302,26 +302,26 @@ mod tests {
     async fn a_source_failure_with_an_empty_cache_returns_the_error() {
         let (service, source, _, _) = service(&["a/b"]);
         source.fail_with(Failure::Upstream);
-        let error = service.repo_stats(&repo("a/b")).await.unwrap_err();
+        let error = service.fetch_repo_stats(&repo("a/b")).await.unwrap_err();
         assert!(matches!(error, StatsError::Upstream(_)));
     }
 
     #[tokio::test]
     async fn a_repository_that_went_private_is_not_served_from_the_stale_value() {
         let (service, source, _, clock) = service(&["a/b"]);
-        service.repo_stats(&repo("a/b")).await.unwrap();
+        service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         clock.advance(FRESH_SECS);
         source.fail_with(Failure::Private);
-        let error = service.repo_stats(&repo("a/b")).await.unwrap_err();
+        let error = service.fetch_repo_stats(&repo("a/b")).await.unwrap_err();
         assert!(matches!(error, StatsError::PrivateRepo(_)));
     }
 
     #[tokio::test]
     async fn a_cache_read_error_is_a_miss_and_the_request_succeeds() {
         let (service, source, cache, _) = service(&["a/b"]);
-        service.repo_stats(&repo("a/b")).await.unwrap();
+        service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         cache.fail_reads(true);
-        let report = service.repo_stats(&repo("a/b")).await.unwrap();
+        let report = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         assert_eq!(source.calls(), 2);
         assert!(!report.stale);
     }
@@ -330,7 +330,7 @@ mod tests {
     async fn a_cache_write_error_still_returns_the_value() {
         let (service, _, cache, _) = service(&["a/b"]);
         cache.fail_writes(true);
-        let report = service.repo_stats(&repo("a/b")).await.unwrap();
+        let report = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         assert_eq!(report.stats.repo, repo("a/b"));
         assert!(cache.is_empty());
     }
@@ -339,14 +339,17 @@ mod tests {
     async fn an_undecodable_payload_is_a_miss() {
         let (service, source, cache, _) = service(&["a/b"]);
         cache.put(&CacheKey::for_repo(&repo("a/b")), b"not json");
-        service.repo_stats(&repo("a/b")).await.unwrap();
+        service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         assert_eq!(source.calls(), 1);
     }
 
     #[tokio::test]
     async fn an_unknown_repository_is_rejected_and_the_source_is_never_called() {
         let (service, source, _, _) = service(&["a/b"]);
-        let error = service.repo_stats(&repo("a/other")).await.unwrap_err();
+        let error = service
+            .fetch_repo_stats(&repo("a/other"))
+            .await
+            .unwrap_err();
         assert!(matches!(error, StatsError::UnknownRepo(_)));
         assert_eq!(source.calls(), 0);
     }
@@ -358,7 +361,7 @@ mod tests {
         let tasks: Vec<_> = (0..8)
             .map(|_| {
                 let service = service.clone();
-                tokio::spawn(async move { service.repo_stats(&repo("a/b")).await })
+                tokio::spawn(async move { service.fetch_repo_stats(&repo("a/b")).await })
             })
             .collect();
         for task in tasks {
@@ -370,14 +373,14 @@ mod tests {
     #[tokio::test]
     async fn the_snapshot_is_stored_with_the_retain_window() {
         let (service, _, cache, _) = service(&["a/b"]);
-        service.repo_stats(&repo("a/b")).await.unwrap();
+        service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         assert_eq!(cache.last_retain(), Some(Duration::from_hours(1)));
     }
 
     #[tokio::test]
     async fn portfolio_stats_keeps_allowlist_order_and_sums_totals() {
         let (service, _, _, _) = service(&["a/one", "a/two", "a/three"]);
-        let portfolio = service.portfolio_stats().await.unwrap();
+        let portfolio = service.fetch_portfolio_stats().await.unwrap();
         let names: Vec<&str> = portfolio.repos.iter().map(|r| &*r.stats.repo).collect();
         assert_eq!(names, ["a/one", "a/two", "a/three"]);
         assert_eq!(portfolio.totals.repos, 3);
@@ -389,7 +392,7 @@ mod tests {
     async fn portfolio_stats_returns_partial_results_and_names_what_is_missing() {
         let (service, source, _, _) = service(&["a/one", "a/two"]);
         source.fail_repo(&repo("a/two"), Failure::Upstream);
-        let portfolio = service.portfolio_stats().await.unwrap();
+        let portfolio = service.fetch_portfolio_stats().await.unwrap();
         assert_eq!(portfolio.repos.len(), 1);
         assert_eq!(portfolio.unavailable, vec![repo("a/two")]);
         assert_eq!(portfolio.totals.repos, 1);
@@ -399,20 +402,20 @@ mod tests {
     async fn portfolio_stats_fails_when_nothing_resolved() {
         let (service, source, _, _) = service(&["a/one", "a/two"]);
         source.fail_with(Failure::RateLimited);
-        let error = service.portfolio_stats().await.unwrap_err();
+        let error = service.fetch_portfolio_stats().await.unwrap_err();
         assert!(matches!(error, StatsError::RateLimited { .. }));
     }
 
     #[tokio::test]
     async fn computed_fields_github_forgot_stand_from_the_last_answer() {
         let (service, source, _, clock) = service(&["a/b"]);
-        let first = service.repo_stats(&repo("a/b")).await.unwrap();
+        let first = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         assert!(first.stats.weekly_commits.is_some());
         assert_eq!(first.stats.additions, Some(500));
 
         source.set_computed(false);
         clock.advance(FRESH_SECS);
-        let second = service.repo_stats(&repo("a/b")).await.unwrap();
+        let second = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
         assert_eq!(second.stats.weekly_commits, first.stats.weekly_commits);
         assert_eq!(second.stats.additions, Some(500));
         assert_eq!(second.stats.deletions, Some(100));

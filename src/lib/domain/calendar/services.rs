@@ -112,7 +112,7 @@ impl<S: CalendarSource, C: StatsCache, K: Clock> Service<S, C, K> {
 }
 
 impl<S: CalendarSource, C: StatsCache, K: Clock> CalendarService for Service<S, C, K> {
-    async fn calendar(&self) -> Result<CalendarReport, CalendarError> {
+    async fn fetch_calendar(&self) -> Result<CalendarReport, CalendarError> {
         let key = self.key();
         if let Some(report) = self.fresh_report(self.read(&key).await.as_ref()) {
             return Ok(report);
@@ -125,7 +125,7 @@ impl<S: CalendarSource, C: StatsCache, K: Clock> CalendarService for Service<S, 
             return Ok(report);
         }
 
-        match self.source.calendar(&self.login).await {
+        match self.source.fetch_calendar(&self.login).await {
             Ok(calendar) => {
                 let fetched_at = self.clock.now();
                 let snapshot = Snapshot {
@@ -187,12 +187,12 @@ mod tests {
     #[tokio::test]
     async fn the_first_call_reads_github_and_the_next_one_reads_the_cache() {
         let (service, source, clock) = service(3600);
-        let first = service.calendar().await.unwrap();
+        let first = service.fetch_calendar().await.unwrap();
         assert_eq!(first.calendar.login, "scadoshi");
         assert_eq!(first.calendar.total, 5099);
         assert!(!first.stale);
         clock.advance(3599);
-        let second = service.calendar().await.unwrap();
+        let second = service.fetch_calendar().await.unwrap();
         assert_eq!(second, first);
         assert_eq!(source.calls(), 1);
     }
@@ -200,10 +200,10 @@ mod tests {
     #[tokio::test]
     async fn past_freshness_github_is_asked_again() {
         let (service, source, clock) = service(3600);
-        service.calendar().await.unwrap();
+        service.fetch_calendar().await.unwrap();
         clock.advance(3600);
         source.set_total(5100);
-        let report = service.calendar().await.unwrap();
+        let report = service.fetch_calendar().await.unwrap();
         assert_eq!(report.calendar.total, 5100);
         assert_eq!(source.calls(), 2);
     }
@@ -211,10 +211,10 @@ mod tests {
     #[tokio::test]
     async fn a_stale_calendar_covers_for_github_and_is_marked() {
         let (service, source, clock) = service(3600);
-        let first = service.calendar().await.unwrap();
+        let first = service.fetch_calendar().await.unwrap();
         clock.advance(3600);
         source.fail(true);
-        let report = service.calendar().await.unwrap();
+        let report = service.fetch_calendar().await.unwrap();
         assert!(report.stale);
         assert_eq!(report.calendar, first.calendar);
         assert_eq!(report.fetched_at, first.fetched_at);
@@ -224,6 +224,6 @@ mod tests {
     async fn with_nothing_cached_a_failure_is_the_answer() {
         let (service, source, _) = service(3600);
         source.fail(true);
-        assert!(service.calendar().await.is_err());
+        assert!(service.fetch_calendar().await.is_err());
     }
 }

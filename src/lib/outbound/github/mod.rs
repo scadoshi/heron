@@ -134,7 +134,7 @@ impl GitHub {
     /// result go cold again between refreshes for a repository nobody pushes
     /// to. The first ask starts the job, so one more after `computing_pause`
     /// catches most of them; a second 202 waits for the next refresh.
-    async fn statistics(
+    async fn fetch_statistics(
         &self,
         repo: &RepoName,
         suffix: &str,
@@ -158,7 +158,7 @@ impl GitHub {
         }
     }
 
-    async fn repository(&self, repo: &RepoName) -> Result<RawRepository, GitHubError> {
+    async fn fetch_repository(&self, repo: &RepoName) -> Result<RawRepository, GitHubError> {
         let response = accepted(self.get(repo, "").send().await?)?;
         Ok(response.json().await?)
     }
@@ -168,7 +168,7 @@ impl GitHub {
     /// Asked for one commit per page, GitHub names the last page in the `Link`
     /// header, and that page number is the count. A history of one page or none has
     /// no such header, and the count is the length of the body.
-    async fn commits(&self, repo: &RepoName, branch: &str) -> Result<u64, GitHubError> {
+    async fn fetch_commits(&self, repo: &RepoName, branch: &str) -> Result<u64, GitHubError> {
         let response = self
             .get(repo, "/commits")
             .query(&[("per_page", "1"), ("sha", branch)])
@@ -191,7 +191,7 @@ impl GitHub {
         Ok(u64::try_from(commits.len()).unwrap_or(u64::MAX))
     }
 
-    async fn languages(&self, repo: &RepoName) -> Result<Vec<Language>, GitHubError> {
+    async fn fetch_languages(&self, repo: &RepoName) -> Result<Vec<Language>, GitHubError> {
         let response = accepted(self.get(repo, "/languages").send().await?)?;
         let bytes_by_name: HashMap<String, u64> = response.json().await?;
         let mut languages: Vec<Language> = bytes_by_name
@@ -204,8 +204,8 @@ impl GitHub {
 
     /// Lines added and deleted across all contributors, or `None` when GitHub has
     /// nothing to report yet.
-    async fn churn(&self, repo: &RepoName) -> Result<Option<(u64, u64)>, GitHubError> {
-        let Some(response) = self.statistics(repo, "/stats/contributors").await? else {
+    async fn fetch_churn(&self, repo: &RepoName) -> Result<Option<(u64, u64)>, GitHubError> {
+        let Some(response) = self.fetch_statistics(repo, "/stats/contributors").await? else {
             return Ok(None);
         };
         let response = match accepted(response) {
@@ -230,8 +230,14 @@ impl GitHub {
 
     /// Commits per week over the last year, oldest first, or `None` while GitHub
     /// is still computing them.
-    async fn activity(&self, repo: &RepoName) -> Result<Option<Vec<WeekCommits>>, GitHubError> {
-        let Some(response) = self.statistics(repo, "/stats/commit_activity").await? else {
+    async fn fetch_activity(
+        &self,
+        repo: &RepoName,
+    ) -> Result<Option<Vec<WeekCommits>>, GitHubError> {
+        let Some(response) = self
+            .fetch_statistics(repo, "/stats/commit_activity")
+            .await?
+        else {
             return Ok(None);
         };
         let response = match accepted(response) {
@@ -258,18 +264,18 @@ impl GitHub {
         Ok(Some(weeks))
     }
 
-    async fn read(&self, repo: &RepoName) -> Result<RepoStats, GitHubError> {
-        let repository = self.repository(repo).await?;
+    async fn fetch_stats(&self, repo: &RepoName) -> Result<RepoStats, GitHubError> {
+        let repository = self.fetch_repository(repo).await?;
         // Checked before anything else is requested, so nothing about a private
         // repository is read, let alone served.
         if repository.private {
             return Err(GitHubError::Private);
         }
         let (commits, languages, churn, activity) = tokio::join!(
-            self.commits(repo, &repository.default_branch),
-            self.languages(repo),
-            self.churn(repo),
-            self.activity(repo),
+            self.fetch_commits(repo, &repository.default_branch),
+            self.fetch_languages(repo),
+            self.fetch_churn(repo),
+            self.fetch_activity(repo),
         );
         let churn = churn?;
         Ok(RepoStats {
@@ -287,8 +293,8 @@ impl GitHub {
 }
 
 impl StatsSource for GitHub {
-    async fn repo_stats(&self, repo: &RepoName) -> Result<RepoStats, StatsError> {
-        self.read(repo)
+    async fn fetch_repo_stats(&self, repo: &RepoName) -> Result<RepoStats, StatsError> {
+        self.fetch_stats(repo)
             .await
             .map_err(|error| error.into_stats_error(repo))
     }
@@ -298,7 +304,7 @@ impl StatsSource for GitHub {
 const CALENDAR_QUERY: &str = "query($login: String!) { user(login: $login) { contributionsCollection { contributionCalendar { totalContributions weeks { contributionDays { date contributionCount contributionLevel } } } } } }";
 
 impl GitHub {
-    async fn calendar(&self, login: &str) -> Result<Calendar, GitHubError> {
+    async fn fetch_calendar(&self, login: &str) -> Result<Calendar, GitHubError> {
         let Some(token) = &self.token else {
             return Err(GitHubError::NoToken);
         };
@@ -348,12 +354,14 @@ impl GitHub {
 }
 
 impl CalendarSource for GitHub {
-    async fn calendar(&self, login: &str) -> Result<Calendar, CalendarError> {
-        self.calendar(login).await.map_err(|error| match error {
-            GitHubError::NoToken => CalendarError::NoToken,
-            GitHubError::RateLimited { reset_at } => CalendarError::RateLimited { reset_at },
-            other => CalendarError::Upstream(anyhow::Error::new(other)),
-        })
+    async fn fetch_calendar(&self, login: &str) -> Result<Calendar, CalendarError> {
+        self.fetch_calendar(login)
+            .await
+            .map_err(|error| match error {
+                GitHubError::NoToken => CalendarError::NoToken,
+                GitHubError::RateLimited { reset_at } => CalendarError::RateLimited { reset_at },
+                other => CalendarError::Upstream(anyhow::Error::new(other)),
+            })
     }
 }
 

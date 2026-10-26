@@ -18,12 +18,12 @@ use crate::inbound::http::{ApiError, AppState};
 pub async fn get_portfolio_stats(
     State(state): State<AppState>,
 ) -> Result<Json<HttpPortfolioStats>, ApiError> {
-    let portfolio = state.stats_service.portfolio_stats().await?;
+    let portfolio = state.stats_service.fetch_portfolio_stats().await?;
     let mut counts = Vec::with_capacity(portfolio.repos.len());
     for report in &portfolio.repos {
-        counts.push(state.counts_service.counts(&report.stats.repo).await);
+        counts.push(state.counts_service.fetch_counts(&report.stats.repo).await);
     }
-    let calendar = match state.calendar_service.calendar().await {
+    let calendar = match state.calendar_service.fetch_calendar().await {
         Ok(report) => Some(report),
         Err(CalendarError::NoToken) => None,
         Err(error) => {

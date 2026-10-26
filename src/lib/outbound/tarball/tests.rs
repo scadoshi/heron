@@ -101,7 +101,10 @@ async fn a_rust_tarball_is_unpacked_measured_and_removed() {
     let dir = scratch("rust");
     let source = fake.serve(Some(TOKEN), &dir).await;
 
-    let counts = source.counts(&repo("scadoshi/steller")).await.unwrap();
+    let counts = source
+        .fetch_counts(&repo("scadoshi/steller"))
+        .await
+        .unwrap();
 
     assert_eq!(
         counts,
@@ -129,7 +132,7 @@ async fn a_tarball_in_neither_language_is_not_measurable() {
     let fake = Fake::serving(tarball("x-y-1", &[("index.html", "<p>hi</p>\n")]));
     let dir = scratch("other");
     let source = fake.serve(None, &dir).await;
-    let error = source.counts(&repo("x/y")).await.unwrap_err();
+    let error = source.fetch_counts(&repo("x/y")).await.unwrap_err();
     let _ = fs::remove_dir_all(&dir);
     assert!(matches!(error, CountsError::NotMeasurable(_)), "{error}");
 }
@@ -140,7 +143,7 @@ async fn a_refusal_is_an_upstream_error_that_names_the_status() {
     fake.status = 404;
     let dir = scratch("refused");
     let source = fake.serve(None, &dir).await;
-    let error = source.counts(&repo("x/y")).await.unwrap_err();
+    let error = source.fetch_counts(&repo("x/y")).await.unwrap_err();
     let _ = fs::remove_dir_all(&dir);
     assert!(error.to_string().contains("404"), "{error}");
 }
@@ -150,7 +153,7 @@ async fn bytes_that_are_not_a_tarball_are_an_upstream_error_and_leave_nothing_be
     let fake = Fake::serving(b"this is not gzip".to_vec());
     let dir = scratch("garbage");
     let source = fake.serve(None, &dir).await;
-    let error = source.counts(&repo("x/y")).await.unwrap_err();
+    let error = source.fetch_counts(&repo("x/y")).await.unwrap_err();
     let leftovers = fs::read_dir(&dir).map_or(0, Iterator::count);
     let _ = fs::remove_dir_all(&dir);
     assert!(matches!(error, CountsError::Upstream(_)), "{error}");
@@ -165,7 +168,7 @@ async fn a_real_repository_measures_from_github() {
         .ok()
         .and_then(|t| Secret::new(&t).ok());
     let source = Tarball::new("https://api.github.com", token, dir.clone()).unwrap();
-    let counts = source.counts(&repo("scadoshi/gotcha")).await.unwrap();
+    let counts = source.fetch_counts(&repo("scadoshi/gotcha")).await.unwrap();
     let leftovers = fs::read_dir(&dir).map_or(0, Iterator::count);
     let _ = fs::remove_dir_all(&dir);
     assert_eq!(counts.language, Language::Rust);

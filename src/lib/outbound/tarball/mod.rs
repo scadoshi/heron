@@ -118,7 +118,7 @@ impl Tarball {
 }
 
 impl CountsSource for Tarball {
-    async fn counts(&self, repo: &RepoName) -> Result<Counts, CountsError> {
+    async fn fetch_counts(&self, repo: &RepoName) -> Result<Counts, CountsError> {
         let work = self.dir.join(format!(
             "{}-{}",
             repo.to_string().replace('/', "-"),

@@ -173,12 +173,12 @@ async fn the_service_reads_back_what_it_stored_in_steller() {
     };
     let first =
         stats::services::Service::new(source.clone(), steller(), TestClock::default(), settings());
-    let report = first.repo_stats(&repo(&name)).await.unwrap();
+    let report = first.fetch_repo_stats(&repo(&name)).await.unwrap();
 
     // A second service with its own connection, as after a restart.
     let second =
         stats::services::Service::new(source.clone(), steller(), TestClock::default(), settings());
-    let again = second.repo_stats(&repo(&name)).await.unwrap();
+    let again = second.fetch_repo_stats(&repo(&name)).await.unwrap();
 
     assert_eq!(again, report);
     assert_eq!(source.calls(), 1);

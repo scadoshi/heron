@@ -195,7 +195,7 @@ async fn reads_every_field() {
     let stats = fake
         .serve(None)
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap();
     assert_eq!(stats.repo, repo("a/b"));
@@ -216,7 +216,7 @@ async fn languages_are_sorted_by_bytes_then_name() {
     let stats = Fake::default()
         .serve(None)
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap();
     let names: Vec<&str> = stats.languages.iter().map(|l| l.name.as_str()).collect();
@@ -228,7 +228,7 @@ async fn the_branch_is_sent_encoded_with_one_commit_per_page() {
     let fake = Fake::default();
     fake.serve(None)
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap();
     assert!(fake.saw("/repos/a/b/commits?per_page=1&sha=release%2F1.0+rc"));
@@ -248,14 +248,14 @@ async fn without_a_link_header_the_count_is_the_length_of_the_body() {
     let stats = one
         .serve(None)
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap();
     assert_eq!(stats.commits, 1);
     let stats = none
         .serve(None)
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap();
     assert_eq!(stats.commits, 0);
@@ -271,7 +271,7 @@ async fn a_repository_with_no_commits_counts_zero() {
     let stats = fake
         .serve(None)
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap();
     assert_eq!(stats.commits, 0);
@@ -287,7 +287,7 @@ async fn statistics_still_being_computed_are_none() {
         let stats = fake
             .serve(None)
             .await
-            .repo_stats(&repo("a/b"))
+            .fetch_repo_stats(&repo("a/b"))
             .await
             .unwrap();
         assert_eq!(stats.additions, None, "{status}");
@@ -306,7 +306,7 @@ async fn statistics_that_fail_or_do_not_parse_are_none() {
         let stats = fake
             .serve(None)
             .await
-            .repo_stats(&repo("a/b"))
+            .fetch_repo_stats(&repo("a/b"))
             .await
             .unwrap();
         assert_eq!(stats.additions, None, "{contributors:?}");
@@ -323,7 +323,7 @@ async fn a_private_repository_is_refused_before_anything_else_is_read() {
     let error = fake
         .serve(Some(TOKEN))
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap_err();
     assert!(matches!(error, StatsError::PrivateRepo(_)), "{error:?}");
@@ -339,7 +339,7 @@ async fn not_found_is_an_unknown_repository() {
     let error = fake
         .serve(None)
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap_err();
     assert!(matches!(error, StatsError::UnknownRepo(_)), "{error:?}");
@@ -361,7 +361,7 @@ async fn a_spent_rate_limit_carries_its_reset_time() {
         let error = fake
             .serve(None)
             .await
-            .repo_stats(&repo("a/b"))
+            .fetch_repo_stats(&repo("a/b"))
             .await
             .unwrap_err();
         let StatsError::RateLimited { reset_at } = error else {
@@ -380,7 +380,7 @@ async fn the_secondary_rate_limit_is_recognized_by_retry_after() {
     let error = fake
         .serve(None)
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap_err();
     assert!(
@@ -398,7 +398,7 @@ async fn a_forbidden_that_is_not_a_rate_limit_is_upstream() {
     let error = fake
         .serve(None)
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap_err();
     assert!(matches!(error, StatsError::Upstream(_)), "{error:?}");
@@ -414,7 +414,7 @@ async fn a_rate_limit_on_the_statistics_fails_the_read() {
     let error = fake
         .serve(None)
         .await
-        .churn(&repo("a/b"))
+        .fetch_churn(&repo("a/b"))
         .await
         .unwrap_err();
     assert!(matches!(error, GitHubError::RateLimited { .. }));
@@ -425,7 +425,7 @@ async fn every_request_identifies_itself() {
     let fake = Fake::default();
     fake.serve(None)
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap();
     for seen in fake.seen.lock().unwrap().iter() {
@@ -440,7 +440,7 @@ async fn the_token_is_sent_only_when_configured() {
     let with = Fake::default();
     with.serve(Some(TOKEN))
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap();
     for seen in with.seen.lock().unwrap().iter() {
@@ -454,7 +454,7 @@ async fn the_token_is_sent_only_when_configured() {
     without
         .serve(None)
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap();
     for seen in without.seen.lock().unwrap().iter() {
@@ -468,7 +468,7 @@ async fn the_token_never_appears_in_an_error_or_in_debug() {
     let base = format!("http://{}", listener.local_addr().unwrap());
     drop(listener);
     let github = GitHub::new(&base, Some(Secret::new(TOKEN).unwrap())).unwrap();
-    let error = github.repo_stats(&repo("a/b")).await.unwrap_err();
+    let error = github.fetch_repo_stats(&repo("a/b")).await.unwrap_err();
     assert!(matches!(error, StatsError::Upstream(_)));
     assert!(!format!("{error}").contains(TOKEN));
     assert!(!format!("{error:?}").contains(TOKEN));
@@ -481,7 +481,7 @@ async fn the_token_never_appears_in_an_error_or_in_debug() {
     let error = refused
         .serve(Some(TOKEN))
         .await
-        .repo_stats(&repo("a/b"))
+        .fetch_repo_stats(&repo("a/b"))
         .await
         .unwrap_err();
     assert!(!format!("{error} {error:?}").contains(TOKEN));
@@ -492,7 +492,7 @@ async fn a_trailing_slash_on_the_base_is_dropped() {
     let fake = Fake::default();
     let github = fake.serve(None).await;
     let github = GitHub::new(&format!("{}/", github.base), None).unwrap();
-    github.repo_stats(&repo("a/b")).await.unwrap();
+    github.fetch_repo_stats(&repo("a/b")).await.unwrap();
     assert!(fake.saw("/repos/a/b/languages"));
     assert!(!fake.saw("//repos"));
 }
@@ -534,7 +534,7 @@ async fn activity(State(fake): State<Fake>, request: Request) -> AxumResponse {
 async fn weekly_commits_come_back_oldest_first() {
     let fake = Fake::default();
     let github = fake.serve(None).await;
-    let stats = github.repo_stats(&repo("a/b")).await.unwrap();
+    let stats = github.fetch_repo_stats(&repo("a/b")).await.unwrap();
     let weeks = stats.weekly_commits.unwrap();
     assert_eq!(weeks.len(), 2);
     assert!(weeks[0].week < weeks[1].week);
@@ -549,7 +549,7 @@ async fn weekly_commits_are_none_while_github_is_still_computing_them() {
         ..Fake::default()
     };
     let github = fake.serve(None).await;
-    let stats = github.repo_stats(&repo("a/b")).await.unwrap();
+    let stats = github.fetch_repo_stats(&repo("a/b")).await.unwrap();
     assert_eq!(stats.weekly_commits, None);
     assert_eq!(
         fake.count("/stats/commit_activity"),
@@ -569,7 +569,7 @@ async fn statistics_github_finishes_during_the_pause_come_back_on_the_second_ask
         ..Fake::default()
     };
     let github = fake.serve(None).await;
-    let stats = github.repo_stats(&repo("a/b")).await.unwrap();
+    let stats = github.fetch_repo_stats(&repo("a/b")).await.unwrap();
     let weeks = stats.weekly_commits.unwrap();
     assert_eq!(weeks.len(), 1);
     assert_eq!(fake.count("/stats/commit_activity"), 2);
@@ -581,7 +581,9 @@ async fn statistics_github_finishes_during_the_pause_come_back_on_the_second_ask
 async fn the_calendar_is_one_graphql_query_with_the_token_and_the_login() {
     let fake = Fake::default();
     let github = fake.serve(Some(TOKEN)).await;
-    let calendar = CalendarSource::calendar(&github, "scadoshi").await.unwrap();
+    let calendar = CalendarSource::fetch_calendar(&github, "scadoshi")
+        .await
+        .unwrap();
     assert_eq!(calendar.login, "scadoshi");
     assert_eq!(calendar.total, 61);
     assert_eq!(calendar.days.len(), 3);
@@ -602,7 +604,7 @@ async fn the_calendar_is_one_graphql_query_with_the_token_and_the_login() {
 async fn without_a_token_the_calendar_is_not_asked_for() {
     let fake = Fake::default();
     let github = fake.serve(None).await;
-    let error = CalendarSource::calendar(&github, "scadoshi")
+    let error = CalendarSource::fetch_calendar(&github, "scadoshi")
         .await
         .unwrap_err();
     assert!(matches!(error, CalendarError::NoToken), "{error}");
@@ -619,7 +621,7 @@ async fn a_graphql_error_in_the_body_is_upstream() {
         ..Fake::default()
     };
     let github = fake.serve(Some(TOKEN)).await;
-    let error = CalendarSource::calendar(&github, "nobody")
+    let error = CalendarSource::fetch_calendar(&github, "nobody")
         .await
         .unwrap_err();
     assert!(error.to_string().contains("Could not resolve"), "{error}");

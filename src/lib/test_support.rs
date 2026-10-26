@@ -180,7 +180,7 @@ impl FakeSource {
 }
 
 impl StatsSource for FakeSource {
-    async fn repo_stats(&self, repo: &RepoName) -> Result<RepoStats, StatsError> {
+    async fn fetch_repo_stats(&self, repo: &RepoName) -> Result<RepoStats, StatsError> {
         let (delay, outcome) = {
             let mut state = self.0.lock().unwrap();
             state.calls += 1;
@@ -357,7 +357,10 @@ impl FakeCountsSource {
 }
 
 impl CountsSource for FakeCountsSource {
-    fn counts(&self, _repo: &RepoName) -> impl Future<Output = Result<Counts, CountsError>> + Send {
+    fn fetch_counts(
+        &self,
+        _repo: &RepoName,
+    ) -> impl Future<Output = Result<Counts, CountsError>> + Send {
         let mut state = self.0.lock().unwrap();
         state.calls += 1;
         future::ready(if state.fail {
@@ -427,7 +430,7 @@ impl FakeCalendar {
 }
 
 impl CalendarSource for FakeCalendar {
-    fn calendar(
+    fn fetch_calendar(
         &self,
         login: &str,
     ) -> impl Future<Output = Result<Calendar, CalendarError>> + Send {

@@ -20,7 +20,7 @@ pub async fn get_repo_stats(
     Path((owner, name)): Path<(String, String)>,
 ) -> Result<Json<HttpRepoStats>, ApiError> {
     let repo = RepoName::new(format!("{owner}/{name}"))?;
-    let report = state.stats_service.repo_stats(&repo).await?;
-    let counts = state.counts_service.counts(&repo).await;
+    let report = state.stats_service.fetch_repo_stats(&repo).await?;
+    let counts = state.counts_service.fetch_counts(&repo).await;
     Ok(Json(HttpRepoStats::new(report, counts)))
 }

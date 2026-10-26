@@ -42,11 +42,11 @@ The arrow is the direction of `use`. `domain` imports from neither side. `inboun
 
 1. The request passes the middleware in `build_router`: request id, trace span, catch-panic, compression, CORS, security headers, timeout, body limit. Then the rate limiter, keyed by `CfConnectingIpKeyExtractor`.
 2. `get_repo_stats` builds a `RepoName` from the two path segments. A name that does not parse is answered 404 here.
-3. The handler calls `state.stats_service.repo_stats(&repo)`. That is a call through `Arc<dyn ErasedStatsService>`, forwarded by the blanket impl to `Service::repo_stats`.
+3. The handler calls `state.stats_service.fetch_repo_stats(&repo)`. That is a call through `Arc<dyn ErasedStatsService>`, forwarded by the blanket impl to `Service::fetch_repo_stats`.
 4. `Service::resolve` looks the repository up in its refresh locks. Not there means not in the allowlist, and the answer is `StatsError::UnknownRepo` with GitHub never asked.
 5. It reads `CacheKey::for_repo(&repo)` from the cache. Nothing is there.
 6. It takes that repository's refresh lock and reads the cache again, since another request may have filled it meanwhile.
-7. It calls `StatsSource::repo_stats`. `GitHub::read` asks for the repository, refuses if it is private, then asks for commits, languages and contributor statistics concurrently.
+7. It calls `StatsSource::fetch_repo_stats`. `GitHub::fetch_stats` asks for the repository, refuses if it is private, then asks for commits, languages and contributor statistics concurrently.
 8. The service wraps the result in a `Snapshot` with `fetched_at` from the clock and `fresh_until` one fresh window later, serializes it, and stores it with the retain window.
 9. It returns a `RepoReport`. The handler converts that into `HttpRepoStats`.
 10. On the way out the stats routes add `Cache-Control: public, max-age=300`, since the response is a success.
