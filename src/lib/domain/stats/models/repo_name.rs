@@ -1,5 +1,6 @@
 //! [`RepoName`], a validated `owner/name`.
 
+use std::fmt;
 use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
@@ -115,8 +116,8 @@ impl Deref for RepoName {
     }
 }
 
-impl std::fmt::Display for RepoName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for RepoName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.full)
     }
 }

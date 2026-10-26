@@ -18,9 +18,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use common::{StubSource, TestClock, repo};
+use heron::domain::stats;
 use heron::domain::stats::models::cache_key::CacheKey;
 use heron::domain::stats::ports::{StatsCache, StatsService};
-use heron::domain::stats::services::{Service, Settings};
 use heron::outbound::cache::steller::StellerCache;
 
 fn steller() -> StellerCache {
@@ -166,16 +166,18 @@ async fn many_tasks_share_the_connection() {
 async fn the_service_reads_back_what_it_stored_in_steller() {
     let name = unique_repo();
     let source = StubSource::default();
-    let settings = || Settings {
+    let settings = || stats::services::Settings {
         repos: vec![repo(&name)],
         fresh: Duration::from_mins(1),
         retain: Duration::from_mins(2),
     };
-    let first = Service::new(source.clone(), steller(), TestClock::default(), settings());
+    let first =
+        stats::services::Service::new(source.clone(), steller(), TestClock::default(), settings());
     let report = first.repo_stats(&repo(&name)).await.unwrap();
 
     // A second service with its own connection, as after a restart.
-    let second = Service::new(source.clone(), steller(), TestClock::default(), settings());
+    let second =
+        stats::services::Service::new(source.clone(), steller(), TestClock::default(), settings());
     let again = second.repo_stats(&repo(&name)).await.unwrap();
 
     assert_eq!(again, report);

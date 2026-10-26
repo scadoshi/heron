@@ -1,7 +1,7 @@
 //! In-process cache, a map from key to bytes.
 
 use std::collections::HashMap;
-use std::future::{Future, ready};
+use std::future::{self, Future};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -68,7 +68,7 @@ impl StatsCache for MemoryCache {
         &self,
         key: &CacheKey,
     ) -> impl Future<Output = Result<Option<Vec<u8>>, CacheError>> + Send {
-        ready(Ok(self.lookup(key)))
+        future::ready(Ok(self.lookup(key)))
     }
 
     fn set(
@@ -77,11 +77,11 @@ impl StatsCache for MemoryCache {
         value: &[u8],
         retain: Duration,
     ) -> impl Future<Output = Result<(), CacheError>> + Send {
-        ready(self.store(key, value, retain))
+        future::ready(self.store(key, value, retain))
     }
 
     fn ping(&self) -> impl Future<Output = Result<(), CacheError>> + Send {
-        ready(Ok(()))
+        future::ready(Ok(()))
     }
 }
 

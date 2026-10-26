@@ -10,6 +10,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
+use axum::Router;
 use axum::extract::Request;
 use axum::http::{HeaderValue, Method, StatusCode, header};
 use axum::middleware::Next;
@@ -20,8 +21,11 @@ use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::limit::RequestBodyLimitLayer;
-use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
+use tower_http::request_id::{
+    MakeRequestUuid, PropagateRequestIdLayer, RequestId, SetRequestIdLayer,
+};
 use tower_http::timeout::TimeoutLayer;
+use tower_http::trace::TraceLayer;
 
 use crate::domain::calendar::ports::ErasedCalendarService;
 use crate::domain::counts::ports::ErasedCountsService;
@@ -166,7 +170,7 @@ impl fmt::Debug for AppState {
 
 /// Axum HTTP server with its routes and middleware in place.
 pub struct HttpServer {
-    router: axum::Router,
+    router: Router,
     listener: net::TcpListener,
 }
 
@@ -182,33 +186,28 @@ impl fmt::Debug for HttpServer {
 /// # Errors
 ///
 /// When the rate limiter rejects its configuration (see [`routes::routes`]).
-pub fn build_router(
-    state: AppState,
-    allowed_origins: Vec<HeaderValue>,
-) -> anyhow::Result<axum::Router> {
+pub fn build_router(state: AppState, allowed_origins: Vec<HeaderValue>) -> anyhow::Result<Router> {
     // The request id is set before the trace layer runs, so the span can carry it.
-    let trace_layer = tower_http::trace::TraceLayer::new_for_http().make_span_with(
-        |request: &axum::extract::Request<_>| {
-            let uri = request.uri().to_string();
-            let request_id = request
-                .extensions()
-                .get::<tower_http::request_id::RequestId>()
-                .and_then(|id| id.header_value().to_str().ok())
-                .unwrap_or("");
-            tracing::info_span!(
-                "http_request",
-                method = ?request.method(),
-                uri,
-                request_id = %request_id,
-            )
-        },
-    );
+    let trace_layer = TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
+        let uri = request.uri().to_string();
+        let request_id = request
+            .extensions()
+            .get::<RequestId>()
+            .and_then(|id| id.header_value().to_str().ok())
+            .unwrap_or("");
+        tracing::info_span!(
+            "http_request",
+            method = ?request.method(),
+            uri,
+            request_id = %request_id,
+        )
+    });
 
     // Layers wrap what is above them, so the last one added is the first a request
     // meets: SetRequestId, PropagateRequestId, trace, CatchPanic, Compression, Cors,
     // security_headers, Timeout, RequestBodyLimit.
     let x_request_id = header::HeaderName::from_static("x-request-id");
-    Ok(axum::Router::new()
+    Ok(Router::new()
         .merge(routes::routes()?)
         .fallback(not_found)
         .layer(RequestBodyLimitLayer::new(16 * 1024))
@@ -235,7 +234,7 @@ pub fn build_router(
 /// request without `Origin` (a curl, the deploy workflow) would otherwise carry
 /// no CORS header and every browser served it would fail. More than one origin
 /// has to be mirrored per request.
-fn allow_origin(mut origins: Vec<header::HeaderValue>) -> AllowOrigin {
+fn allow_origin(mut origins: Vec<HeaderValue>) -> AllowOrigin {
     if origins.len() == 1 {
         AllowOrigin::exact(origins.remove(0))
     } else {
@@ -303,8 +302,8 @@ async fn shutdown_signal() {
 
     #[cfg(unix)]
     let terminate = async {
-        use tokio::signal::unix::{SignalKind, signal};
-        if let Ok(mut stream) = signal(SignalKind::terminate()) {
+        use tokio::signal::unix::{self, SignalKind};
+        if let Ok(mut stream) = unix::signal(SignalKind::terminate()) {
             stream.recv().await;
         }
     };

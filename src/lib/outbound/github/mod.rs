@@ -10,7 +10,7 @@ pub mod link;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use reqwest::header::{ACCEPT, HeaderMap, HeaderValue, LINK, RETRY_AFTER};
 use reqwest::{Response, StatusCode};
 use serde::Deserialize;
@@ -138,7 +138,7 @@ impl GitHub {
         &self,
         repo: &RepoName,
         suffix: &str,
-    ) -> Result<Option<reqwest::Response>, GitHubError> {
+    ) -> Result<Option<Response>, GitHubError> {
         let response = self.get(repo, suffix).send().await?;
         if !computing(&response) {
             return Ok(Some(response));
@@ -466,7 +466,7 @@ struct RawCalendarWeek {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RawDay {
-    date: chrono::NaiveDate,
+    date: NaiveDate,
     contribution_count: u32,
     contribution_level: String,
 }

@@ -8,7 +8,7 @@ use chrono::{DateTime, TimeDelta, Utc};
 use tokio::sync::Mutex;
 
 use crate::domain::clock::Clock;
-use crate::domain::counts::models::{Counts, CountsReport, Sweep};
+use crate::domain::counts::models::{Counts, CountsError, CountsReport, Sweep};
 use crate::domain::counts::ports::{CountsService, CountsSource};
 use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::repo_name::RepoName;
@@ -118,11 +118,7 @@ impl<S: CountsSource, C: StatsCache, T: StatsService, K: Clock> Service<S, C, T,
         }
     }
 
-    async fn measure(
-        &self,
-        repo: &RepoName,
-        key: &CacheKey,
-    ) -> Result<(), crate::domain::counts::models::CountsError> {
+    async fn measure(&self, repo: &RepoName, key: &CacheKey) -> Result<(), CountsError> {
         let counts = self.source.counts(repo).await?;
         let fetched_at = self.clock.now();
         let retain = TimeDelta::from_std(self.retain).unwrap_or(TimeDelta::MAX);

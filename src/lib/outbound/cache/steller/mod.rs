@@ -10,14 +10,14 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use connection::{Connection, ConnectionError};
-use resp::Reply;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
 use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::errors::CacheError;
 use crate::domain::stats::ports::StatsCache;
+use crate::outbound::cache::steller::connection::{Connection, ConnectionError};
+use crate::outbound::cache::steller::resp::Reply;
 
 /// Deadline for connecting, and separately for each command and its reply.
 const DEADLINE: Duration = Duration::from_millis(500);

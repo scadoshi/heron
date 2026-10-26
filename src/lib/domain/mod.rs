@@ -3,6 +3,9 @@
 //! clock.
 
 pub mod calendar;
+use std::future::Future;
+use std::pin::Pin;
+
 pub mod clock;
 pub mod counts;
 pub mod health;
@@ -11,4 +14,4 @@ pub mod stats;
 
 /// Boxed future returned by the `ErasedXService` twins (see each domain's ports). One
 /// alias so the erased signatures stay readable.
-pub type BoxFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>>;
+pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;

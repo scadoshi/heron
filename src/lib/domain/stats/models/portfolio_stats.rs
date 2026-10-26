@@ -1,7 +1,5 @@
 //! [`PortfolioStats`], every repository in one answer.
 
-#[cfg(test)]
-use chrono::Datelike;
 use chrono::{DateTime, Utc};
 
 use crate::domain::stats::models::repo_name::RepoName;
@@ -76,7 +74,7 @@ pub struct PortfolioStats {
 
 #[cfg(test)]
 mod tests {
-    use chrono::TimeZone;
+    use chrono::{Datelike, TimeZone};
 
     use super::*;
     use crate::test_support::{repo, stats_for};

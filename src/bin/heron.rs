@@ -6,14 +6,10 @@ use std::time::Duration;
 
 use heron::config::{CacheBackend, Config};
 use heron::domain::calendar::ports::ErasedCalendarService;
-use heron::domain::calendar::{self};
 use heron::domain::counts::ports::ErasedCountsService;
-use heron::domain::counts::{self};
 use heron::domain::health::ports::ErasedHealthService;
-use heron::domain::health::{self};
 use heron::domain::stats::ports::{ErasedStatsService, StatsCache};
-use heron::domain::stats::services::Settings;
-use heron::domain::stats::{self};
+use heron::domain::{calendar, counts, health, stats};
 use heron::inbound::http::{HttpServer, HttpServerConfig};
 use heron::outbound::cache::layered::LayeredCache;
 use heron::outbound::cache::memory::MemoryCache;
@@ -81,7 +77,7 @@ async fn run() -> anyhow::Result<()> {
         config.measure_dir,
     )?;
     let retain = config.stats_retain;
-    let settings = Settings {
+    let settings = stats::services::Settings {
         repos: config.github_repos.clone(),
         fresh: config.stats_fresh,
         retain: config.stats_retain,
@@ -153,7 +149,7 @@ fn services<C: StatsCache>(
     github: GitHub,
     tarball: Tarball,
     cache: C,
-    settings: Settings,
+    settings: stats::services::Settings,
     counts_settings: counts::services::Settings,
     calendar_settings: calendar::services::Settings,
 ) -> Services {

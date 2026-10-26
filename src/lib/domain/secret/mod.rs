@@ -1,5 +1,7 @@
 //! [`Secret`], a string that never prints its contents.
 
+use std::fmt;
+
 use thiserror::Error;
 
 /// Why a [`Secret`] could not be built.
@@ -37,14 +39,14 @@ impl Secret {
 
 /// Never derive this: the derive prints the plaintext, and every struct holding a
 /// `Secret` inherits that through its own `Debug`.
-impl std::fmt::Debug for Secret {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for Secret {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Secret(REDACTED)")
     }
 }
 
-impl std::fmt::Display for Secret {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Secret {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("REDACTED")
     }
 }

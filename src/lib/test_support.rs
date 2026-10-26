@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use std::future::{Future, ready};
+use std::future::{self, Future};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -272,7 +272,7 @@ impl StatsCache for FakeCache {
         key: &CacheKey,
     ) -> impl Future<Output = Result<Option<Vec<u8>>, CacheError>> + Send {
         let state = self.0.lock().unwrap();
-        ready(if state.fail_reads {
+        future::ready(if state.fail_reads {
             Err(CacheError(anyhow::anyhow!("read refused")))
         } else {
             Ok(state.entries.get(&**key).cloned())
@@ -286,7 +286,7 @@ impl StatsCache for FakeCache {
         retain: Duration,
     ) -> impl Future<Output = Result<(), CacheError>> + Send {
         let mut state = self.0.lock().unwrap();
-        ready(if state.fail_writes {
+        future::ready(if state.fail_writes {
             Err(CacheError(anyhow::anyhow!("write refused")))
         } else {
             state.last_retain = Some(retain);
@@ -296,7 +296,7 @@ impl StatsCache for FakeCache {
     }
 
     fn ping(&self) -> impl Future<Output = Result<(), CacheError>> + Send {
-        ready(if self.0.lock().unwrap().fail_pings {
+        future::ready(if self.0.lock().unwrap().fail_pings {
             Err(CacheError(anyhow::anyhow!("no answer")))
         } else {
             Ok(())
@@ -360,7 +360,7 @@ impl CountsSource for FakeCountsSource {
     fn counts(&self, _repo: &RepoName) -> impl Future<Output = Result<Counts, CountsError>> + Send {
         let mut state = self.0.lock().unwrap();
         state.calls += 1;
-        ready(if state.fail {
+        future::ready(if state.fail {
             Err(CountsError::Upstream(anyhow::anyhow!("tarball refused")))
         } else {
             Ok(Self::counts_with(state.lines))
@@ -433,7 +433,7 @@ impl CalendarSource for FakeCalendar {
     ) -> impl Future<Output = Result<Calendar, CalendarError>> + Send {
         let mut state = self.0.lock().unwrap();
         state.calls += 1;
-        ready(if state.fail {
+        future::ready(if state.fail {
             Err(CalendarError::Upstream(anyhow::anyhow!("graphql refused")))
         } else {
             Ok(Self::calendar_for(login, state.total))

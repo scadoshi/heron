@@ -1,6 +1,7 @@
 //! Paths and the routes behind them.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
 use axum::Router;
@@ -13,9 +14,7 @@ use tower_governor::governor::GovernorConfigBuilder;
 use tower_http::set_header::SetResponseHeaderLayer;
 
 use crate::inbound::http::AppState;
-use crate::inbound::http::handlers::health::{is_cache_running, is_server_running, root};
-use crate::inbound::http::handlers::stats::get_portfolio_stats::get_portfolio_stats;
-use crate::inbound::http::handlers::stats::get_repo_stats::get_repo_stats;
+use crate::inbound::http::handlers::{health, stats};
 use crate::inbound::http::middleware::CfConnectingIpKeyExtractor;
 
 // == paths ==
@@ -87,7 +86,7 @@ type CacheHeaderFn = fn(&Response<Body>) -> Option<HeaderValue>;
 pub fn routes() -> anyhow::Result<Router<AppState>> {
     let limit = Arc::new(
         GovernorConfigBuilder::default()
-            .period(std::time::Duration::from_secs(REPLENISH_SECS))
+            .period(Duration::from_secs(REPLENISH_SECS))
             .burst_size(BURST)
             .key_extractor(CfConnectingIpKeyExtractor)
             .finish()
@@ -96,17 +95,17 @@ pub fn routes() -> anyhow::Result<Router<AppState>> {
 
     let cache_control: CacheHeaderFn = cache_successes;
     let stats = Router::new()
-        .route(STATS_ROUTE, get(get_portfolio_stats))
-        .route(REPO_STATS_ROUTE, get(get_repo_stats))
+        .route(STATS_ROUTE, get(stats::get_portfolio_stats))
+        .route(REPO_STATS_ROUTE, get(stats::get_repo_stats))
         .layer(SetResponseHeaderLayer::if_not_present(
             header::CACHE_CONTROL,
             cache_control,
         ));
 
     Ok(Router::new()
-        .route(ROOT_ROUTE, get(root))
-        .route(HEALTH_ROUTE, get(is_server_running))
-        .route(CACHE_HEALTH_ROUTE, get(is_cache_running))
+        .route(ROOT_ROUTE, get(health::root))
+        .route(HEALTH_ROUTE, get(health::is_server_running))
+        .route(CACHE_HEALTH_ROUTE, get(health::is_cache_running))
         .merge(stats)
         .layer(GovernorLayer::new(limit).error_handler(rate_limited)))
 }

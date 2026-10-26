@@ -6,7 +6,7 @@ use std::time::Duration;
 use thiserror::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::time::timeout;
+use tokio::time;
 
 use crate::outbound::cache::steller::resp::{self, Reply, RespError};
 
@@ -43,7 +43,7 @@ impl Connection {
     /// [`ConnectionError::Io`] when the connection is refused or `TCP_NODELAY`
     /// cannot be set.
     pub async fn open(address: SocketAddr, deadline: Duration) -> Result<Self, ConnectionError> {
-        let stream = timeout(deadline, TcpStream::connect(address))
+        let stream = time::timeout(deadline, TcpStream::connect(address))
             .await
             .map_err(|_| ConnectionError::TimedOut(deadline))??;
         // Commands are small and each waits for its reply, so there is nothing for
@@ -70,7 +70,7 @@ impl Connection {
         command: &[u8],
         deadline: Duration,
     ) -> Result<Reply, ConnectionError> {
-        timeout(deadline, self.exchange(command))
+        time::timeout(deadline, self.exchange(command))
             .await
             .map_err(|_| ConnectionError::TimedOut(deadline))?
     }

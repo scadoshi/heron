@@ -1,5 +1,6 @@
 //! [`CacheKey`], the versioned key a snapshot is stored under.
 
+use std::fmt;
 use std::ops::Deref;
 
 use crate::domain::stats::models::repo_name::RepoName;
@@ -48,8 +49,8 @@ impl Deref for CacheKey {
     }
 }
 
-impl std::fmt::Display for CacheKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for CacheKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
     }
 }

@@ -19,7 +19,7 @@
 )]
 
 use std::collections::HashMap;
-use std::future::{Future, ready};
+use std::future::{self, Future};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
@@ -32,20 +32,16 @@ use axum::http::{HeaderMap, HeaderValue, Request, StatusCode};
 use chrono::{DateTime, NaiveDate, TimeDelta, TimeZone, Utc};
 use heron::domain::calendar::models::{Calendar, CalendarError, Day};
 use heron::domain::calendar::ports::{CalendarSource, ErasedCalendarService};
-use heron::domain::calendar::{self};
 use heron::domain::clock::Clock;
 use heron::domain::counts::models::{Counts, CountsError, Language as CountsLanguage};
 use heron::domain::counts::ports::{CountsSource, ErasedCountsService};
-use heron::domain::counts::{self};
-use heron::domain::health;
 use heron::domain::stats::models::cache_key::CacheKey;
 use heron::domain::stats::models::errors::{CacheError, StatsError};
 use heron::domain::stats::models::repo_name::RepoName;
 use heron::domain::stats::models::repo_stats::{Language, RepoStats, WeekCommits};
 use heron::domain::stats::ports::{StatsCache, StatsSource};
-use heron::domain::stats::services::Settings;
-use heron::domain::stats::{self};
-use heron::inbound::http::{AppState, build_router};
+use heron::domain::{calendar, counts, health, stats};
+use heron::inbound::http::{self, AppState};
 use heron::outbound::cache::memory::MemoryCache;
 use http_body_util::BodyExt;
 use serde_json::Value;
@@ -118,7 +114,7 @@ impl StatsSource for StubSource {
         &self,
         repo: &RepoName,
     ) -> impl Future<Output = Result<RepoStats, StatsError>> + Send {
-        ready(self.answer_for(repo))
+        future::ready(self.answer_for(repo))
     }
 }
 
@@ -183,7 +179,7 @@ impl StubCounts {
 
 impl CountsSource for StubCounts {
     fn counts(&self, _: &RepoName) -> impl Future<Output = Result<Counts, CountsError>> + Send {
-        ready(Ok(Self::counts()))
+        future::ready(Ok(Self::counts()))
     }
 }
 
@@ -203,7 +199,7 @@ impl CalendarSource for StubCalendar {
             count,
             level,
         };
-        ready(Ok(Calendar {
+        future::ready(Ok(Calendar {
             login: login.to_string(),
             total: 61,
             days: vec![day(28, 0, 0), day(29, 13, 2), day(30, 48, 4)],
@@ -226,7 +222,7 @@ impl StatsCache for DeadCache {
         &self,
         _: &CacheKey,
     ) -> impl Future<Output = Result<Option<Vec<u8>>, CacheError>> + Send {
-        ready(Err(CacheError(anyhow::anyhow!("no answer"))))
+        future::ready(Err(CacheError(anyhow::anyhow!("no answer"))))
     }
 
     fn set(
@@ -235,11 +231,11 @@ impl StatsCache for DeadCache {
         _: &[u8],
         _: Duration,
     ) -> impl Future<Output = Result<(), CacheError>> + Send {
-        ready(Err(CacheError(anyhow::anyhow!("no answer"))))
+        future::ready(Err(CacheError(anyhow::anyhow!("no answer"))))
     }
 
     fn ping(&self) -> impl Future<Output = Result<(), CacheError>> + Send {
-        ready(Err(CacheError(anyhow::anyhow!("no answer"))))
+        future::ready(Err(CacheError(anyhow::anyhow!("no answer"))))
     }
 }
 
@@ -285,7 +281,7 @@ impl TestApp {
             source.clone(),
             cache.clone(),
             clock.clone(),
-            Settings {
+            stats::services::Settings {
                 repos: repos.iter().map(|raw| repo(raw)).collect(),
                 fresh: Duration::from_secs(FRESH_SECS),
                 retain: Duration::from_secs(FRESH_SECS * 10),
@@ -319,7 +315,8 @@ impl TestApp {
             counts_service: Arc::clone(&counts_service),
             calendar_service,
         };
-        let router = build_router(state, vec![HeaderValue::from_static(ALLOWED_ORIGIN)]).unwrap();
+        let router =
+            http::build_router(state, vec![HeaderValue::from_static(ALLOWED_ORIGIN)]).unwrap();
         Self {
             router,
             source,
