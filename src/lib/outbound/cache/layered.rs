@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::anyhow;
 
-use crate::domain::stats::models::cache_key::CacheKey;
+use crate::domain::stats::models::cache_key::{CacheKey, KeyKind};
 use crate::domain::stats::models::errors::CacheError;
 use crate::domain::stats::ports::Cache;
 
@@ -34,7 +34,7 @@ pub struct LayeredCache<P, S> {
     secondary: S,
     /// How long the secondary keeps a value copied from the primary. The primary does
     /// not say how long its own copy has left, so this is the full window again.
-    retain: Duration,
+    retain: Retain,
     /// Whether the primary failed last time it was asked. Logging keys off the
     /// change, so a dead primary is reported once and its recovery once.
     primary_down: Arc<AtomicBool>,
@@ -46,6 +46,28 @@ pub struct LayeredCache<P, S> {
     retry_at: Arc<AtomicU64>,
     /// Keys whose newest value only the secondary holds.
     ahead_of_primary: Arc<Mutex<HashSet<String>>>,
+}
+
+/// How long each kind of snapshot is kept, the same windows the services write with.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Retain {
+    /// For stats snapshots.
+    pub stats: Duration,
+    /// For counts snapshots.
+    pub counts: Duration,
+    /// For calendar snapshots.
+    pub calendar: Duration,
+}
+
+impl Retain {
+    /// The window for a snapshot of `kind`.
+    pub fn of(self, kind: KeyKind) -> Duration {
+        match kind {
+            KeyKind::Stats => self.stats,
+            KeyKind::Counts => self.counts,
+            KeyKind::Calendar => self.calendar,
+        }
+    }
 }
 
 /// Prints the layers and settings; the key set is not locked to print it.
@@ -62,7 +84,7 @@ impl<P: fmt::Debug, S: fmt::Debug> fmt::Debug for LayeredCache<P, S> {
 
 impl<P: Cache, S: Cache> LayeredCache<P, S> {
     /// Stacks `primary` over `secondary`.
-    pub fn new(primary: P, secondary: S, retain: Duration) -> Self {
+    pub fn new(primary: P, secondary: S, retain: Retain) -> Self {
         Self {
             primary,
             secondary,
@@ -116,7 +138,8 @@ impl<P: Cache, S: Cache> LayeredCache<P, S> {
         {
             return;
         }
-        if let Err(error) = self.secondary.set(key, value, self.retain).await {
+        let retain = self.retain.of(key.kind());
+        if let Err(error) = self.secondary.set(key, value, retain).await {
             tracing::debug!("copy into {} failed: {error}", self.secondary.backend());
         }
     }
@@ -200,6 +223,7 @@ impl<P: Cache, S: Cache> Cache for LayeredCache<P, S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::login::Login;
     use crate::test_support::{FakeCache, repo};
 
     fn key() -> CacheKey {
@@ -215,9 +239,35 @@ mod tests {
     ) -> (LayeredCache<FakeCache, FakeCache>, FakeCache, FakeCache) {
         let primary = FakeCache::default();
         let secondary = FakeCache::default();
-        let cache = LayeredCache::new(primary.clone(), secondary.clone(), Duration::from_mins(5))
-            .with_cooldown(cooldown);
+        let cache =
+            LayeredCache::new(primary.clone(), secondary.clone(), RETAIN).with_cooldown(cooldown);
         (cache, primary, secondary)
+    }
+
+    /// A different window per kind, so a test can tell which one a copy used.
+    const RETAIN: Retain = Retain {
+        stats: Duration::from_mins(5),
+        counts: Duration::from_hours(1),
+        calendar: Duration::from_mins(10),
+    };
+
+    #[tokio::test]
+    async fn a_copy_is_kept_for_its_own_kind_window() {
+        let login = Login::new("someone").unwrap();
+        for key in [
+            key(),
+            CacheKey::for_counts(&repo("a/b")),
+            CacheKey::for_calendar(&login),
+        ] {
+            let (cache, primary, secondary) = layered();
+            primary.put(&key, b"v");
+            cache.get(&key).await.unwrap();
+            assert_eq!(
+                secondary.last_retain(),
+                Some(RETAIN.of(key.kind())),
+                "copy of {key}"
+            );
+        }
     }
 
     #[tokio::test]

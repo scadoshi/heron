@@ -16,38 +16,66 @@ use crate::domain::stats::models::repo_name::RepoName;
 /// [`Calendar`]: crate::domain::calendar::models::Calendar
 const SCHEMA_VERSION: u32 = 1;
 
+/// What a cached snapshot holds, which decides how long it is kept.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum KeyKind {
+    /// A repository's stats.
+    Stats,
+    /// A repository's source counts.
+    Counts,
+    /// An account's contribution calendar.
+    Calendar,
+}
+
 /// Key a snapshot is stored under: `heron:<kind>:v<SCHEMA_VERSION>:<id>`, where the
 /// kind is `stats`, `counts` or `calendar` and the id is a repository or a login.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CacheKey(String);
+pub struct CacheKey {
+    kind: KeyKind,
+    key: String,
+}
 
 impl CacheKey {
     /// The key for `repo` at the current schema version.
     pub fn for_repo(repo: &RepoName) -> Self {
-        Self(format!("heron:stats:v{SCHEMA_VERSION}:{repo}"))
+        Self {
+            kind: KeyKind::Stats,
+            key: format!("heron:stats:v{SCHEMA_VERSION}:{repo}"),
+        }
     }
 
     /// The key for `repo`'s source counts: `heron:counts:v1:owner/name`.
     pub fn for_counts(repo: &RepoName) -> Self {
-        Self(format!("heron:counts:v{SCHEMA_VERSION}:{repo}"))
+        Self {
+            kind: KeyKind::Counts,
+            key: format!("heron:counts:v{SCHEMA_VERSION}:{repo}"),
+        }
     }
 
     /// The key for an account's contribution calendar: `heron:calendar:v1:login`.
     pub fn for_calendar(login: &Login) -> Self {
-        Self(format!("heron:calendar:v{SCHEMA_VERSION}:{login}"))
+        Self {
+            kind: KeyKind::Calendar,
+            key: format!("heron:calendar:v{SCHEMA_VERSION}:{login}"),
+        }
+    }
+
+    /// What the snapshot under this key holds.
+    pub fn kind(&self) -> KeyKind {
+        self.kind
     }
 }
 
 impl Deref for CacheKey {
     type Target = str;
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.key
     }
 }
 
 impl fmt::Display for CacheKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(&self.key)
     }
 }
 

@@ -10,7 +10,7 @@ use heron::domain::health::ports::ErasedHealthService;
 use heron::domain::stats::ports::{Cache, ErasedStatsService};
 use heron::domain::{calendar, counts, health, stats};
 use heron::inbound::http::{HttpServer, HttpServerConfig};
-use heron::outbound::cache::layered::LayeredCache;
+use heron::outbound::cache::layered::{LayeredCache, Retain};
 use heron::outbound::cache::memory::MemoryCache;
 use heron::outbound::cache::steller::StellerCache;
 use heron::outbound::clock::SystemClock;
@@ -59,7 +59,6 @@ async fn main() -> anyhow::Result<()> {
         config.github_token,
         config.measure_dir,
     )?;
-    let retain = config.stats_retain;
     let settings = stats::services::Settings {
         repos: config.github_repos.clone(),
         fresh: config.stats_fresh,
@@ -73,6 +72,11 @@ async fn main() -> anyhow::Result<()> {
         login: config.github_login,
         fresh: config.calendar_fresh,
         retain: config.stats_retain,
+    };
+    let retain = Retain {
+        stats: settings.retain,
+        counts: counts_settings.retain,
+        calendar: calendar_settings.retain,
     };
 
     // Each arm builds services over a different cache type. Erasing them here is
