@@ -1,3 +1,5 @@
+//! The calendar, the report the service hands out around it, and why it can fail.
+
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

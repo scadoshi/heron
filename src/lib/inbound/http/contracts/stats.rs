@@ -1,3 +1,5 @@
+//! Bodies of `GET /stats` and `GET /stats/{owner}/{name}`.
+
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 

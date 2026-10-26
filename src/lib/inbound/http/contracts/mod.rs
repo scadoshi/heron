@@ -1,10 +1,7 @@
 //! The JSON the API answers with. Domain types convert into these and carry nothing
 //! HTTP-shaped themselves.
 
-/// Health responses.
 pub mod health;
-
-/// Stats responses.
 pub mod stats;
 
 /// Serializes a timestamp as RFC 3339 in UTC to the second: `2026-09-29T16:04:41Z`.

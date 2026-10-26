@@ -1,4 +1,4 @@
-//! The system clock.
+//! The system clock, behind the `Clock` port.
 
 use chrono::{DateTime, Utc};
 

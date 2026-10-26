@@ -1,3 +1,5 @@
+//! [`Service`], health checks over the stats cache.
+
 use crate::domain::health::models::HealthCheckFailed;
 use crate::domain::health::ports::HealthService;
 use crate::domain::stats::ports::StatsCache;

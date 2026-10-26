@@ -1,3 +1,5 @@
+//! [`Service`], the stats service over a source, a cache and a clock.
+
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;

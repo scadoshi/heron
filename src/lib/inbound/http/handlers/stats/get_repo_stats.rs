@@ -1,3 +1,5 @@
+//! `GET /stats/{owner}/{name}`.
+
 use axum::Json;
 use axum::extract::{Path, State};
 

@@ -1,3 +1,5 @@
+//! `GET /`, `GET /health` and `GET /health/cache`.
+
 use axum::Json;
 use axum::extract::State;
 

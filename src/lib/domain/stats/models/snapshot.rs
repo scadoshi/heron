@@ -1,3 +1,5 @@
+//! [`Snapshot`], the cached payload.
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

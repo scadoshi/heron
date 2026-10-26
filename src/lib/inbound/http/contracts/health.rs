@@ -1,3 +1,5 @@
+//! Bodies of the root and health endpoints.
+
 use serde::Serialize;
 
 /// Body of `GET /`.

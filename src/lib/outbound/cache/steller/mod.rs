@@ -3,10 +3,7 @@
 //! steller is the Redis-compatible server at <https://github.com/scadoshi/steller>.
 //! The client speaks plain RESP2 with no handshake, so it works against Redis too.
 
-/// One connection and a request over it.
 pub mod connection;
-
-/// The wire codec.
 pub mod resp;
 
 use std::net::SocketAddr;

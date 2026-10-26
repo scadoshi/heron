@@ -1,3 +1,5 @@
+//! [`Service`], the sweep that measures and caches, and the reads requests make.
+
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;

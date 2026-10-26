@@ -1,12 +1,8 @@
 //! HTTP layer: Axum server, error mapping, middleware, and routes.
 
-/// The JSON the API answers with.
 pub mod contracts;
-/// Request handlers.
 pub mod handlers;
-/// Rate-limit key extraction.
 pub mod middleware;
-/// Paths and the routes behind them.
 pub mod routes;
 
 use std::fmt;

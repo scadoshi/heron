@@ -1,3 +1,5 @@
+//! [`PortfolioStats`], every repository in one answer.
+
 #[cfg(test)]
 use chrono::Datelike;
 use chrono::{DateTime, Utc};

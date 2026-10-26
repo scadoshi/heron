@@ -2,23 +2,12 @@
 //! orchestrate them. Nothing here knows about HTTP, TCP, GitHub, RESP, or the system
 //! clock.
 
-/// The time port.
-pub mod clock;
-
-/// Cache liveness for monitoring.
-pub mod health;
-
-/// Redacting wrapper for credentials.
-pub mod secret;
-
-/// GitHub statistics for the allowlisted repositories.
-pub mod stats;
-
-/// Lines, tests and lints counted from each repository's source.
-pub mod counts;
-
-/// A year of GitHub contributions for one account.
 pub mod calendar;
+pub mod clock;
+pub mod counts;
+pub mod health;
+pub mod secret;
+pub mod stats;
 
 /// Boxed future returned by the `ErasedXService` twins (see each domain's ports). One
 /// alias so the erased signatures stay readable.

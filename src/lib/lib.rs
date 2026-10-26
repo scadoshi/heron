@@ -17,16 +17,9 @@
 
 #![warn(missing_docs)]
 
-/// Configuration from the environment.
 pub mod config;
-
-/// Core models, ports, and services.
 pub mod domain;
-
-/// The HTTP API.
 pub mod inbound;
-
-/// Adapters the domain's ports are implemented by.
 pub mod outbound;
 
 #[cfg(test)]

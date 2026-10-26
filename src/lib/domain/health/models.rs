@@ -1,3 +1,5 @@
+//! Why a health check fails.
+
 use thiserror::Error;
 
 /// A dependency did not answer.

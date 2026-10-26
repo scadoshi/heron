@@ -1,3 +1,5 @@
+//! [`RepoStats`] and what the service returns around it.
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

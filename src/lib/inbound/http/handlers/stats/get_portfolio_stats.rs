@@ -1,3 +1,5 @@
+//! `GET /stats`.
+
 use axum::Json;
 use axum::extract::State;
 

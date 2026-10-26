@@ -1,3 +1,5 @@
+//! [`CacheKey`], the versioned key a snapshot is stored under.
+
 use std::ops::Deref;
 
 use crate::domain::stats::models::repo_name::RepoName;

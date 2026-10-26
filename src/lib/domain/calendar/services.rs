@@ -1,3 +1,5 @@
+//! [`Service`], the calendar service over a source, a cache and a clock.
+
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;

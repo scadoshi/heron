@@ -5,7 +5,6 @@
 //! for the contribution calendar.
 //! Only the fields read are deserialized.
 
-/// Parsing of the `Link` response header.
 pub mod link;
 
 use std::collections::HashMap;

@@ -1,4 +1,4 @@
-//! Two caches stacked.
+//! Two caches stacked: a primary, and a secondary that covers for it.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};

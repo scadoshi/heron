@@ -1,4 +1,4 @@
-//! In-process cache.
+//! In-process cache, a map from key to bytes.
 
 use std::collections::HashMap;
 use std::future::{Future, ready};

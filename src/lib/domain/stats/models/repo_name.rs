@@ -1,3 +1,5 @@
+//! [`RepoName`], a validated `owner/name`.
+
 use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};

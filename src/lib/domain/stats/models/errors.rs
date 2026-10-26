@@ -1,3 +1,5 @@
+//! Error types for the source, the cache, and the service.
+
 use chrono::{DateTime, Utc};
 use thiserror::Error;
 

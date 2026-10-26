@@ -1,3 +1,5 @@
+//! The counts report, the sweep summary, and why a measurement fails.
+
 use chrono::{DateTime, Utc};
 pub use measure::{Counts, Language};
 use thiserror::Error;
