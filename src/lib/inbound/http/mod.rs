@@ -9,6 +9,7 @@ pub mod middleware;
 /// Paths and the routes behind them.
 pub mod routes;
 
+use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -160,10 +161,23 @@ pub struct AppState {
     pub calendar_service: Arc<dyn ErasedCalendarService>,
 }
 
+/// The services are trait objects without `Debug`, so nothing is printed.
+impl fmt::Debug for AppState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AppState").finish_non_exhaustive()
+    }
+}
+
 /// Axum HTTP server with its routes and middleware in place.
 pub struct HttpServer {
     router: axum::Router,
     listener: net::TcpListener,
+}
+
+impl fmt::Debug for HttpServer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HttpServer").finish_non_exhaustive()
+    }
 }
 
 /// Assembles the router and the middleware stack. Apart from `HttpServer::new` so

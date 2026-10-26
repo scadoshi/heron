@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -39,6 +40,18 @@ pub struct Service<S: StatsSource, C: StatsCache, K: Clock> {
     refresh_locks: Arc<HashMap<RepoName, Mutex<()>>>,
     fresh: TimeDelta,
     retain: Duration,
+}
+
+/// Prints the settings only: the adapters need not be `Debug`, and no refresh
+/// lock is taken to print it.
+impl<S: StatsSource, C: StatsCache, K: Clock> fmt::Debug for Service<S, C, K> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Service")
+            .field("repos", &self.repos)
+            .field("fresh", &self.fresh)
+            .field("retain", &self.retain)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<S: StatsSource, C: StatsCache, K: Clock> Service<S, C, K> {

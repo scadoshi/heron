@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -34,6 +35,18 @@ pub struct Service<S: CalendarSource, C: StatsCache, K: Clock> {
     refreshing: Arc<Mutex<()>>,
     fresh: TimeDelta,
     retain: Duration,
+}
+
+/// Prints the settings only: the adapters need not be `Debug`, and the refresh
+/// lock is never taken to print it.
+impl<S: CalendarSource, C: StatsCache, K: Clock> fmt::Debug for Service<S, C, K> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Service")
+            .field("login", &self.login)
+            .field("fresh", &self.fresh)
+            .field("retain", &self.retain)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<S: CalendarSource, C: StatsCache, K: Clock> Service<S, C, K> {

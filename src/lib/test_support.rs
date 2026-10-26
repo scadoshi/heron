@@ -9,6 +9,7 @@
 )]
 
 use std::collections::HashMap;
+use std::fmt;
 use std::future::{Future, ready};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -60,6 +61,13 @@ impl Default for FakeClock {
         Self(Arc::new(Mutex::new(
             Utc.with_ymd_and_hms(2026, 9, 29, 12, 0, 0).unwrap(),
         )))
+    }
+}
+
+// Each fake keeps its state behind a mutex, which printing never locks.
+impl fmt::Debug for FakeClock {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FakeClock").finish_non_exhaustive()
     }
 }
 
@@ -124,6 +132,12 @@ impl Default for FakeSource {
             failing_repos: HashMap::new(),
             delay: None,
         })))
+    }
+}
+
+impl fmt::Debug for FakeSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FakeSource").finish_non_exhaustive()
     }
 }
 
@@ -211,6 +225,12 @@ struct CacheState {
 /// A cache that never expires anything and fails on request.
 #[derive(Clone, Default)]
 pub struct FakeCache(Arc<Mutex<CacheState>>);
+
+impl fmt::Debug for FakeCache {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FakeCache").finish_non_exhaustive()
+    }
+}
 
 impl FakeCache {
     pub fn fail_reads(&self, fail: bool) {
@@ -306,6 +326,12 @@ impl Default for FakeCountsSource {
     }
 }
 
+impl fmt::Debug for FakeCountsSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FakeCountsSource").finish_non_exhaustive()
+    }
+}
+
 impl FakeCountsSource {
     /// Rust counts with `lines` lines.
     pub fn counts_with(lines: u64) -> Counts {
@@ -361,6 +387,12 @@ impl Default for FakeCalendar {
             total: 5099,
             fail: false,
         })))
+    }
+}
+
+impl fmt::Debug for FakeCalendar {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FakeCalendar").finish_non_exhaustive()
     }
 }
 

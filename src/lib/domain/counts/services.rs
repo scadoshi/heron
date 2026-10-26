@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -42,6 +43,17 @@ fn needs_measuring(cached: Option<&Snapshot<Counts>>, pushed_at: Option<DateTime
     match cached {
         None => true,
         Some(snapshot) => pushed_at.is_some_and(|pushed_at| pushed_at > snapshot.fetched_at),
+    }
+}
+
+/// Prints the settings only: the adapters need not be `Debug`, and the sweep
+/// lock is never taken to print it.
+impl<S: CountsSource, C: StatsCache, T: StatsService, K: Clock> fmt::Debug for Service<S, C, T, K> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Service")
+            .field("repos", &self.repos)
+            .field("retain", &self.retain)
+            .finish_non_exhaustive()
     }
 }
 
