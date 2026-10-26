@@ -94,7 +94,7 @@ pub fn routes() -> anyhow::Result<Router<AppState>> {
     );
 
     let cache_control: CacheHeaderFn = cache_successes;
-    let stats = Router::new()
+    let stats_routes = Router::new()
         .route(STATS_ROUTE, get(stats::get_portfolio_stats))
         .route(REPO_STATS_ROUTE, get(stats::get_repo_stats))
         .layer(SetResponseHeaderLayer::if_not_present(
@@ -104,8 +104,8 @@ pub fn routes() -> anyhow::Result<Router<AppState>> {
 
     Ok(Router::new()
         .route(ROOT_ROUTE, get(health::root))
-        .route(HEALTH_ROUTE, get(health::is_server_running))
-        .route(CACHE_HEALTH_ROUTE, get(health::is_cache_running))
-        .merge(stats)
+        .route(HEALTH_ROUTE, get(health::health))
+        .route(CACHE_HEALTH_ROUTE, get(health::cache_health))
+        .merge(stats_routes)
         .layer(GovernorLayer::new(limit).error_handler(rate_limited)))
 }

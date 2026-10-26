@@ -16,7 +16,7 @@ pub async fn root() -> Json<HttpRoot> {
 }
 
 /// Healthy if the server can answer at all.
-pub async fn is_server_running() -> Json<HttpHealth> {
+pub async fn health() -> Json<HttpHealth> {
     Json(HttpHealth {
         status: "healthy",
         version: env!("CARGO_PKG_VERSION"),
@@ -24,7 +24,7 @@ pub async fn is_server_running() -> Json<HttpHealth> {
 }
 
 /// Which cache backend is in use and whether it answers a ping.
-pub async fn is_cache_running(State(state): State<AppState>) -> Json<HttpCacheHealth> {
+pub async fn cache_health(State(state): State<AppState>) -> Json<HttpCacheHealth> {
     let status = match state.health_service.check_cache().await {
         Ok(()) => "healthy",
         Err(error) => {

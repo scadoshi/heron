@@ -213,7 +213,7 @@ mod tests {
         let (service, source, clock) = service(3600);
         let first = service.fetch_calendar().await.unwrap();
         clock.advance(3600);
-        source.fail(true);
+        source.set_failing(true);
         let report = service.fetch_calendar().await.unwrap();
         assert!(report.stale);
         assert_eq!(report.calendar, first.calendar);
@@ -223,7 +223,7 @@ mod tests {
     #[tokio::test]
     async fn with_nothing_cached_a_failure_is_the_answer() {
         let (service, source, _) = service(3600);
-        source.fail(true);
+        source.set_failing(true);
         assert!(service.fetch_calendar().await.is_err());
     }
 }

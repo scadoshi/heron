@@ -357,7 +357,7 @@ mod tests {
     #[tokio::test]
     async fn concurrent_callers_on_an_expired_key_cause_one_source_call() {
         let (service, source, _, _) = service(&["a/b"]);
-        source.delay(Duration::from_millis(20));
+        source.set_delay(Duration::from_millis(20));
         let tasks: Vec<_> = (0..8)
             .map(|_| {
                 let service = service.clone();

@@ -140,12 +140,12 @@ impl GitHub {
         suffix: &str,
     ) -> Result<Option<Response>, GitHubError> {
         let response = self.get(repo, suffix).send().await?;
-        if !computing(&response) {
+        if !is_computing(&response) {
             return Ok(Some(response));
         }
         tokio::time::sleep(self.computing_pause).await;
         let response = self.get(repo, suffix).send().await?;
-        Ok((!computing(&response)).then_some(response))
+        Ok((!is_computing(&response)).then_some(response))
     }
 
     fn get(&self, repo: &RepoName, suffix: &str) -> reqwest::RequestBuilder {
@@ -159,7 +159,7 @@ impl GitHub {
     }
 
     async fn fetch_repository(&self, repo: &RepoName) -> Result<RawRepository, GitHubError> {
-        let response = accepted(self.get(repo, "").send().await?)?;
+        let response = check_status(self.get(repo, "").send().await?)?;
         Ok(response.json().await?)
     }
 
@@ -178,7 +178,7 @@ impl GitHub {
         if response.status() == StatusCode::CONFLICT {
             return Ok(0);
         }
-        let response = accepted(response)?;
+        let response = check_status(response)?;
         let last_page = response
             .headers()
             .get(LINK)
@@ -192,7 +192,7 @@ impl GitHub {
     }
 
     async fn fetch_languages(&self, repo: &RepoName) -> Result<Vec<Language>, GitHubError> {
-        let response = accepted(self.get(repo, "/languages").send().await?)?;
+        let response = check_status(self.get(repo, "/languages").send().await?)?;
         let bytes_by_name: HashMap<String, u64> = response.json().await?;
         let mut languages: Vec<Language> = bytes_by_name
             .into_iter()
@@ -208,7 +208,7 @@ impl GitHub {
         let Some(response) = self.fetch_statistics(repo, "/stats/contributors").await? else {
             return Ok(None);
         };
-        let response = match accepted(response) {
+        let response = match check_status(response) {
             Ok(response) => response,
             Err(limited @ GitHubError::RateLimited { .. }) => return Err(limited),
             Err(error) => {
@@ -240,7 +240,7 @@ impl GitHub {
         else {
             return Ok(None);
         };
-        let response = match accepted(response) {
+        let response = match check_status(response) {
             Ok(response) => response,
             Err(limited @ GitHubError::RateLimited { .. }) => return Err(limited),
             Err(error) => {
@@ -319,7 +319,7 @@ impl GitHub {
             .json(&body)
             .send()
             .await?;
-        let response = accepted(response)?;
+        let response = check_status(response)?;
         let reply: RawGraphQl = response.json().await?;
         if let Some(error) = reply.errors.first() {
             return Err(GitHubError::GraphQl(error.message.clone()));
@@ -366,7 +366,7 @@ impl CalendarSource for GitHub {
 }
 
 /// GitHub's answer while it is still computing a `/stats` result.
-fn computing(response: &Response) -> bool {
+fn is_computing(response: &Response) -> bool {
     matches!(
         response.status(),
         StatusCode::ACCEPTED | StatusCode::NO_CONTENT
@@ -374,7 +374,7 @@ fn computing(response: &Response) -> bool {
 }
 
 /// Passes a successful response through and classifies the rest.
-fn accepted(response: Response) -> Result<Response, GitHubError> {
+fn check_status(response: Response) -> Result<Response, GitHubError> {
     let status = response.status();
     if status.is_success() {
         return Ok(response);

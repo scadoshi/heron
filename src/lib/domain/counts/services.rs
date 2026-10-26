@@ -260,7 +260,7 @@ mod tests {
     async fn a_failed_measurement_leaves_the_cached_value_and_is_reported() {
         let (service, source, github, _, clock) = service(&["a/b"]);
         service.sweep().await;
-        source.fail(true);
+        source.set_failing(true);
         github.set_pushed_at(Some(clock.now() + TimeDelta::minutes(5)));
         clock.advance(901);
         let sweep = service.sweep().await;

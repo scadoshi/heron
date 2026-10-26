@@ -174,7 +174,7 @@ impl FakeSource {
     }
 
     /// Every call takes this long, so concurrent callers pile up behind it.
-    pub fn delay(&self, delay: Duration) {
+    pub fn set_delay(&self, delay: Duration) {
         self.0.lock().unwrap().delay = Some(delay);
     }
 }
@@ -351,7 +351,7 @@ impl FakeCountsSource {
         self.0.lock().unwrap().lines = lines;
     }
 
-    pub fn fail(&self, fail: bool) {
+    pub fn set_failing(&self, fail: bool) {
         self.0.lock().unwrap().fail = fail;
     }
 }
@@ -424,7 +424,7 @@ impl FakeCalendar {
         self.0.lock().unwrap().total = total;
     }
 
-    pub fn fail(&self, fail: bool) {
+    pub fn set_failing(&self, fail: bool) {
         self.0.lock().unwrap().fail = fail;
     }
 }
