@@ -23,14 +23,15 @@ pub struct Snapshot<T> {
 }
 
 impl<T> Snapshot<T> {
-    /// `value` as read at `fetched_at`, fresh for `fresh` after it. When adding
-    /// `fresh` overflows the calendar, `fresh_until` is `fetched_at` and the
-    /// snapshot is stale from the start.
+    /// `value` as read at `fetched_at`, fresh for `fresh` after it. A window that
+    /// runs past the end of the calendar keeps the snapshot fresh for good.
     pub fn new(value: T, fetched_at: DateTime<Utc>, fresh: TimeDelta) -> Self {
         Self {
             value,
             fetched_at,
-            fresh_until: fetched_at.checked_add_signed(fresh).unwrap_or(fetched_at),
+            fresh_until: fetched_at
+                .checked_add_signed(fresh)
+                .unwrap_or(DateTime::<Utc>::MAX_UTC),
         }
     }
 
@@ -102,5 +103,17 @@ mod tests {
         let snapshot = Snapshot::new((), now, TimeDelta::seconds(10));
         assert_eq!(snapshot.fetched_at, now);
         assert_eq!(snapshot.fresh_until, now + TimeDelta::seconds(10));
+    }
+
+    #[test]
+    fn a_window_past_the_calendar_is_fresh_forever() {
+        let now = Utc.with_ymd_and_hms(2026, 10, 1, 12, 0, 0).unwrap();
+        let snapshot = Snapshot::new((), now, TimeDelta::MAX);
+        let a_century_later = now + TimeDelta::days(36_525);
+        assert!(
+            snapshot.is_fresh(a_century_later),
+            "fresh_until is {}",
+            snapshot.fresh_until
+        );
     }
 }
