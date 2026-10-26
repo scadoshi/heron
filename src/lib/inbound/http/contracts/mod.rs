@@ -12,18 +12,18 @@ mod rfc3339 {
     use chrono::{DateTime, SecondsFormat, Utc};
     use serde::Serializer;
 
-    pub fn serialize<S: Serializer>(at: &DateTime<Utc>, s: S) -> Result<S::Ok, S::Error> {
+    pub(super) fn serialize<S: Serializer>(at: &DateTime<Utc>, s: S) -> Result<S::Ok, S::Error> {
         s.serialize_str(&at.to_rfc3339_opts(SecondsFormat::Secs, true))
     }
 
-    pub mod option {
+    pub(super) mod option {
         use super::{DateTime, SecondsFormat, Serializer, Utc};
 
         #[expect(
             clippy::ref_option,
             reason = "serde's `serialize_with` passes a reference to the field"
         )]
-        pub fn serialize<S: Serializer>(
+        pub(in crate::inbound::http::contracts) fn serialize<S: Serializer>(
             at: &Option<DateTime<Utc>>,
             s: S,
         ) -> Result<S::Ok, S::Error> {
