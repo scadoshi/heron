@@ -12,7 +12,7 @@ use crate::domain::counts::models::{Counts, CountsError, CountsReport, Sweep};
 use crate::domain::counts::ports::{CountsService, CountsSource};
 use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::repo_name::RepoName;
-use crate::domain::stats::models::snapshot::Snapshot;
+use crate::domain::stats::models::snapshot::{self, Snapshot};
 use crate::domain::stats::ports::{Cache, StatsService};
 
 /// What the service measures and how long the cache keeps a measurement.
@@ -74,38 +74,6 @@ impl<S: CountsSource, C: Cache, T: StatsService, K: Clock> Service<S, C, T, K> {
         }
     }
 
-    /// The snapshot under `key`. A cache error or an undecodable payload is a miss.
-    async fn read(&self, key: &CacheKey) -> Option<Snapshot<Counts>> {
-        let bytes = match self.cache.get(key).await {
-            Ok(bytes) => bytes?,
-            Err(error) => {
-                tracing::warn!("cache read failed for {key}, treating as a miss: {error}");
-                return None;
-            }
-        };
-        match serde_json::from_slice(&bytes) {
-            Ok(snapshot) => Some(snapshot),
-            Err(error) => {
-                tracing::warn!("cached payload under {key} did not decode: {error}");
-                None
-            }
-        }
-    }
-
-    /// Stores `snapshot`. A failure is logged and swallowed.
-    async fn write(&self, key: &CacheKey, snapshot: &Snapshot<Counts>) {
-        let bytes = match serde_json::to_vec(snapshot) {
-            Ok(bytes) => bytes,
-            Err(error) => {
-                tracing::warn!("snapshot for {key} did not encode: {error}");
-                return;
-            }
-        };
-        if let Err(error) = self.cache.set(key, &bytes, self.retain).await {
-            tracing::warn!("cache write failed for {key}: {error}");
-        }
-    }
-
     /// When GitHub last saw a push to `repo`, from the stats service's cached or
     /// fresh answer. `None` when stats could not be read.
     async fn pushed_at(&self, repo: &RepoName) -> Option<DateTime<Utc>> {
@@ -120,25 +88,21 @@ impl<S: CountsSource, C: Cache, T: StatsService, K: Clock> Service<S, C, T, K> {
 
     async fn measure(&self, repo: &RepoName, key: &CacheKey) -> Result<(), CountsError> {
         let counts = self.source.fetch_counts(repo).await?;
-        let fetched_at = self.clock.now();
         let retain = TimeDelta::from_std(self.retain).unwrap_or(TimeDelta::MAX);
-        let snapshot = Snapshot {
-            value: counts,
-            fetched_at,
-            fresh_until: fetched_at.checked_add_signed(retain).unwrap_or(fetched_at),
-        };
-        self.write(key, &snapshot).await;
+        let measured = Snapshot::new(counts, self.clock.now(), retain);
+        snapshot::write(&self.cache, key, &measured, self.retain).await;
         Ok(())
     }
 }
 
 impl<S: CountsSource, C: Cache, T: StatsService, K: Clock> CountsService for Service<S, C, T, K> {
     async fn fetch_counts(&self, repo: &RepoName) -> Option<CountsReport> {
-        let snapshot = self.read(&CacheKey::for_counts(repo)).await?;
+        let measured: Snapshot<Counts> =
+            snapshot::read(&self.cache, &CacheKey::for_counts(repo)).await?;
         Some(CountsReport {
             repo: repo.clone(),
-            counts: snapshot.value,
-            measured_at: snapshot.fetched_at,
+            counts: measured.value,
+            measured_at: measured.fetched_at,
         })
     }
 
@@ -147,7 +111,7 @@ impl<S: CountsSource, C: Cache, T: StatsService, K: Clock> CountsService for Ser
         let mut sweep = Sweep::default();
         for repo in self.repos.iter() {
             let key = CacheKey::for_counts(repo);
-            let cached = self.read(&key).await;
+            let cached = snapshot::read(&self.cache, &key).await;
             let pushed_at = self.pushed_at(repo).await;
             if !needs_measuring(cached.as_ref(), pushed_at) {
                 sweep.skipped.push(repo.clone());

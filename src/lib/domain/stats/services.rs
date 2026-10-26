@@ -15,7 +15,7 @@ use crate::domain::stats::models::errors::StatsError;
 use crate::domain::stats::models::portfolio_stats::{PortfolioStats, Totals};
 use crate::domain::stats::models::repo_name::RepoName;
 use crate::domain::stats::models::repo_stats::{RepoReport, RepoStats};
-use crate::domain::stats::models::snapshot::Snapshot;
+use crate::domain::stats::models::snapshot::{self, Snapshot};
 use crate::domain::stats::ports::{Cache, StatsService, StatsSource};
 
 /// What the service is allowed to serve and for how long.
@@ -75,38 +75,6 @@ impl<S: StatsSource, C: Cache, K: Clock> Service<S, C, K> {
         }
     }
 
-    /// The snapshot under `key`. A cache error or an undecodable payload is a miss.
-    async fn read(&self, key: &CacheKey) -> Option<Snapshot<RepoStats>> {
-        let bytes = match self.cache.get(key).await {
-            Ok(bytes) => bytes?,
-            Err(error) => {
-                tracing::warn!("cache read failed for {key}, treating as a miss: {error}");
-                return None;
-            }
-        };
-        match serde_json::from_slice(&bytes) {
-            Ok(snapshot) => Some(snapshot),
-            Err(error) => {
-                tracing::warn!("cached payload under {key} did not decode: {error}");
-                None
-            }
-        }
-    }
-
-    /// Stores `snapshot`. A failure is logged and swallowed.
-    async fn write(&self, key: &CacheKey, snapshot: &Snapshot<RepoStats>) {
-        let bytes = match serde_json::to_vec(snapshot) {
-            Ok(bytes) => bytes,
-            Err(error) => {
-                tracing::warn!("snapshot for {key} did not encode: {error}");
-                return;
-            }
-        };
-        if let Err(error) = self.cache.set(key, &bytes, self.retain).await {
-            tracing::warn!("cache write failed for {key}: {error}");
-        }
-    }
-
     fn fresh_report(&self, snapshot: Option<&Snapshot<RepoStats>>) -> Option<RepoReport> {
         let snapshot = snapshot.filter(|s| s.is_fresh(self.clock.now()))?;
         Some(RepoReport {
@@ -122,13 +90,13 @@ impl<S: StatsSource, C: Cache, K: Clock> Service<S, C, K> {
         };
         let key = CacheKey::for_repo(repo);
 
-        if let Some(report) = self.fresh_report(self.read(&key).await.as_ref()) {
+        if let Some(report) = self.fresh_report(snapshot::read(&self.cache, &key).await.as_ref()) {
             return Ok(report);
         }
 
         let _refreshing = refresh_lock.lock().await;
         // Another caller may have refreshed while this one waited for the lock.
-        let cached = self.read(&key).await;
+        let cached = snapshot::read(&self.cache, &key).await;
         if let Some(report) = self.fresh_report(cached.as_ref()) {
             return Ok(report);
         }
@@ -149,18 +117,11 @@ impl<S: StatsSource, C: Cache, K: Clock> Service<S, C, K> {
                         .take()
                         .or_else(|| known.weekly_commits.clone());
                 }
-                let fetched_at = self.clock.now();
-                let snapshot = Snapshot {
-                    value: stats,
-                    fetched_at,
-                    fresh_until: fetched_at
-                        .checked_add_signed(self.fresh)
-                        .unwrap_or(fetched_at),
-                };
-                self.write(&key, &snapshot).await;
+                let fetched = Snapshot::new(stats, self.clock.now(), self.fresh);
+                snapshot::write(&self.cache, &key, &fetched, self.retain).await;
                 Ok(RepoReport {
-                    stats: snapshot.value,
-                    fetched_at,
+                    stats: fetched.value,
+                    fetched_at: fetched.fetched_at,
                     stale: false,
                 })
             }

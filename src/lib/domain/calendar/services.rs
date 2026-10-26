@@ -12,7 +12,7 @@ use crate::domain::calendar::ports::{CalendarService, CalendarSource};
 use crate::domain::clock::Clock;
 use crate::domain::login::Login;
 use crate::domain::stats::models::cache_key::CacheKey;
-use crate::domain::stats::models::snapshot::Snapshot;
+use crate::domain::stats::models::snapshot::{self, Snapshot};
 use crate::domain::stats::ports::Cache;
 
 /// Whose calendar, and for how long it is served.
@@ -70,38 +70,6 @@ impl<S: CalendarSource, C: Cache, K: Clock> Service<S, C, K> {
         CacheKey::for_calendar(&self.login)
     }
 
-    /// The snapshot under `key`. A cache error or an undecodable payload is a miss.
-    async fn read(&self, key: &CacheKey) -> Option<Snapshot<Calendar>> {
-        let bytes = match self.cache.get(key).await {
-            Ok(bytes) => bytes?,
-            Err(error) => {
-                tracing::warn!("cache read failed for {key}, treating as a miss: {error}");
-                return None;
-            }
-        };
-        match serde_json::from_slice(&bytes) {
-            Ok(snapshot) => Some(snapshot),
-            Err(error) => {
-                tracing::warn!("cached payload under {key} did not decode: {error}");
-                None
-            }
-        }
-    }
-
-    /// Stores `snapshot`. A failure is logged and swallowed.
-    async fn write(&self, key: &CacheKey, snapshot: &Snapshot<Calendar>) {
-        let bytes = match serde_json::to_vec(snapshot) {
-            Ok(bytes) => bytes,
-            Err(error) => {
-                tracing::warn!("snapshot for {key} did not encode: {error}");
-                return;
-            }
-        };
-        if let Err(error) = self.cache.set(key, &bytes, self.retain).await {
-            tracing::warn!("cache write failed for {key}: {error}");
-        }
-    }
-
     fn fresh_report(&self, snapshot: Option<&Snapshot<Calendar>>) -> Option<CalendarReport> {
         let snapshot = snapshot.filter(|s| s.is_fresh(self.clock.now()))?;
         Some(CalendarReport {
@@ -115,31 +83,24 @@ impl<S: CalendarSource, C: Cache, K: Clock> Service<S, C, K> {
 impl<S: CalendarSource, C: Cache, K: Clock> CalendarService for Service<S, C, K> {
     async fn fetch_calendar(&self) -> Result<CalendarReport, CalendarError> {
         let key = self.key();
-        if let Some(report) = self.fresh_report(self.read(&key).await.as_ref()) {
+        if let Some(report) = self.fresh_report(snapshot::read(&self.cache, &key).await.as_ref()) {
             return Ok(report);
         }
 
         let _refreshing = self.refreshing.lock().await;
         // Another caller may have refreshed while this one waited for the lock.
-        let cached = self.read(&key).await;
+        let cached = snapshot::read(&self.cache, &key).await;
         if let Some(report) = self.fresh_report(cached.as_ref()) {
             return Ok(report);
         }
 
         match self.source.fetch_calendar(&self.login).await {
             Ok(calendar) => {
-                let fetched_at = self.clock.now();
-                let snapshot = Snapshot {
-                    value: calendar,
-                    fetched_at,
-                    fresh_until: fetched_at
-                        .checked_add_signed(self.fresh)
-                        .unwrap_or(fetched_at),
-                };
-                self.write(&key, &snapshot).await;
+                let fetched = Snapshot::new(calendar, self.clock.now(), self.fresh);
+                snapshot::write(&self.cache, &key, &fetched, self.retain).await;
                 Ok(CalendarReport {
-                    calendar: snapshot.value,
-                    fetched_at,
+                    calendar: fetched.value,
+                    fetched_at: fetched.fetched_at,
                     stale: false,
                 })
             }

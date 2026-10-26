@@ -1,7 +1,14 @@
-//! [`Snapshot`], the cached payload.
+//! [`Snapshot`], the cached payload, and the reads and writes every service makes
+//! of it.
 
-use chrono::{DateTime, Utc};
+use std::time::Duration;
+
+use chrono::{DateTime, TimeDelta, Utc};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+
+use crate::domain::stats::models::cache_key::CacheKey;
+use crate::domain::stats::ports::Cache;
 
 /// A value with the time it was fetched and the time it stops being fresh. This is
 /// what the cache stores.
@@ -16,15 +23,64 @@ pub struct Snapshot<T> {
 }
 
 impl<T> Snapshot<T> {
+    /// `value` as read at `fetched_at`, fresh for `fresh` after it. When adding
+    /// `fresh` overflows the calendar, `fresh_until` is `fetched_at` and the
+    /// snapshot is stale from the start.
+    pub fn new(value: T, fetched_at: DateTime<Utc>, fresh: TimeDelta) -> Self {
+        Self {
+            value,
+            fetched_at,
+            fresh_until: fetched_at.checked_add_signed(fresh).unwrap_or(fetched_at),
+        }
+    }
+
     /// Whether the value is still fresh at `now`.
     pub fn is_fresh(&self, now: DateTime<Utc>) -> bool {
         now < self.fresh_until
     }
 }
 
+/// The snapshot under `key`. A cache error or an undecodable payload is logged and
+/// is a miss.
+pub async fn read<T: DeserializeOwned>(cache: &impl Cache, key: &CacheKey) -> Option<Snapshot<T>> {
+    let bytes = match cache.get(key).await {
+        Ok(bytes) => bytes?,
+        Err(error) => {
+            tracing::warn!("cache read failed for {key}, treating as a miss: {error}");
+            return None;
+        }
+    };
+    match serde_json::from_slice(&bytes) {
+        Ok(snapshot) => Some(snapshot),
+        Err(error) => {
+            tracing::warn!("cached payload under {key} did not decode: {error}");
+            None
+        }
+    }
+}
+
+/// Stores `snapshot` under `key` for `retain`. A failure is logged and swallowed.
+pub async fn write<T: Serialize>(
+    cache: &impl Cache,
+    key: &CacheKey,
+    snapshot: &Snapshot<T>,
+    retain: Duration,
+) {
+    let bytes = match serde_json::to_vec(snapshot) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            tracing::warn!("snapshot for {key} did not encode: {error}");
+            return;
+        }
+    };
+    if let Err(error) = cache.set(key, &bytes, retain).await {
+        tracing::warn!("cache write failed for {key}: {error}");
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use chrono::{TimeDelta, TimeZone};
+    use chrono::TimeZone;
 
     use super::*;
 
@@ -38,5 +94,13 @@ mod tests {
         };
         assert!(snapshot.is_fresh(now + TimeDelta::seconds(9)));
         assert!(!snapshot.is_fresh(now + TimeDelta::seconds(10)));
+    }
+
+    #[test]
+    fn new_is_fresh_for_the_window_after_it_was_fetched() {
+        let now = Utc.with_ymd_and_hms(2026, 10, 1, 12, 0, 0).unwrap();
+        let snapshot = Snapshot::new((), now, TimeDelta::seconds(10));
+        assert_eq!(snapshot.fetched_at, now);
+        assert_eq!(snapshot.fresh_until, now + TimeDelta::seconds(10));
     }
 }
