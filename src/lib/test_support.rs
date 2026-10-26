@@ -221,6 +221,8 @@ struct CacheState {
     fail_writes: bool,
     fail_pings: bool,
     last_retain: Option<Duration>,
+    /// Gets and sets asked of the cache, failed ones included.
+    calls: u32,
 }
 
 /// A cache that never expires anything and fails on request.
@@ -261,6 +263,10 @@ impl FakeCache {
     pub fn last_retain(&self) -> Option<Duration> {
         self.0.lock().unwrap().last_retain
     }
+
+    pub fn calls(&self) -> u32 {
+        self.0.lock().unwrap().calls
+    }
 }
 
 impl Cache for FakeCache {
@@ -272,7 +278,8 @@ impl Cache for FakeCache {
         &self,
         key: &CacheKey,
     ) -> impl Future<Output = Result<Option<Vec<u8>>, CacheError>> + Send {
-        let state = self.0.lock().unwrap();
+        let mut state = self.0.lock().unwrap();
+        state.calls += 1;
         future::ready(if state.fail_reads {
             Err(CacheError(anyhow::anyhow!("read refused")))
         } else {
@@ -287,6 +294,7 @@ impl Cache for FakeCache {
         retain: Duration,
     ) -> impl Future<Output = Result<(), CacheError>> + Send {
         let mut state = self.0.lock().unwrap();
+        state.calls += 1;
         future::ready(if state.fail_writes {
             Err(CacheError(anyhow::anyhow!("write refused")))
         } else {

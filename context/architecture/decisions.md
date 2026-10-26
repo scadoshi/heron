@@ -150,6 +150,18 @@ A `Snapshot` carries `fetched_at` and `fresh_until`. The cache's own expiry is a
 
 ---
 
+## A failed primary rests for 30 seconds
+
+**Decided: 2026-10-26, from the scadoshi-rust review.**
+
+When the primary fails a read or a write, `LayeredCache` leaves it alone for `PRIMARY_COOLDOWN` (30 seconds) and serves reads and takes writes from the secondary alone. The first call after the cooldown asks the primary again; an answer clears it, another failure starts a new cooldown. `ping` always asks the primary, so `/health/cache` shows the outage.
+
+**Why:** a steller that accepts connections and never answers costs the adapter its timeouts on every call, and every call waits its turn on the one connection. A `/stats` request makes several cache calls per repository, so a hung steller pushed it past the request timeout. Resting the primary turns that into one slow call every 30 seconds.
+
+**Cost:** writes made while the primary rests reach only the memory layer, so steller misses them until the next refresh writes again.
+
+---
+
 ## Private repositories are refused
 
 **Decided: 2026-09-29.**
