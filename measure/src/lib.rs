@@ -4,8 +4,6 @@
 //! source file outside build directories, every test attribute, and every clippy
 //! entry a `Cargo.toml` sets to `warn` or `deny`.
 
-#![warn(missing_docs)]
-
 use std::path::Path;
 use std::{fmt, fs, io};
 

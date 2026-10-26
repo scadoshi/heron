@@ -15,8 +15,6 @@
 //!
 //! `src/bin/heron.rs` wires adapters into services and starts the server.
 
-#![warn(missing_docs)]
-
 pub mod config;
 pub mod domain;
 pub mod inbound;
