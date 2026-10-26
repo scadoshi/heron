@@ -12,7 +12,7 @@ use crate::domain::calendar::ports::{CalendarService, CalendarSource};
 use crate::domain::clock::Clock;
 use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::snapshot::Snapshot;
-use crate::domain::stats::ports::StatsCache;
+use crate::domain::stats::ports::Cache;
 
 /// Whose calendar, and for how long it is served.
 #[derive(Debug, Clone)]
@@ -51,7 +51,7 @@ impl<S, C, K> fmt::Debug for Service<S, C, K> {
     }
 }
 
-impl<S: CalendarSource, C: StatsCache, K: Clock> Service<S, C, K> {
+impl<S: CalendarSource, C: Cache, K: Clock> Service<S, C, K> {
     /// Creates a calendar service over the given adapters.
     pub fn new(source: S, cache: C, clock: K, settings: Settings) -> Self {
         Self {
@@ -111,7 +111,7 @@ impl<S: CalendarSource, C: StatsCache, K: Clock> Service<S, C, K> {
     }
 }
 
-impl<S: CalendarSource, C: StatsCache, K: Clock> CalendarService for Service<S, C, K> {
+impl<S: CalendarSource, C: Cache, K: Clock> CalendarService for Service<S, C, K> {
     async fn fetch_calendar(&self) -> Result<CalendarReport, CalendarError> {
         let key = self.key();
         if let Some(report) = self.fresh_report(self.read(&key).await.as_ref()) {

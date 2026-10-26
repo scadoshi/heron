@@ -25,7 +25,7 @@ use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::errors::{CacheError, StatsError};
 use crate::domain::stats::models::repo_name::RepoName;
 use crate::domain::stats::models::repo_stats::{Language, RepoStats, WeekCommits};
-use crate::domain::stats::ports::{StatsCache, StatsSource};
+use crate::domain::stats::ports::{Cache, StatsSource};
 
 /// Parses a repository name known to be valid.
 pub fn repo(raw: &str) -> RepoName {
@@ -262,7 +262,7 @@ impl FakeCache {
     }
 }
 
-impl StatsCache for FakeCache {
+impl Cache for FakeCache {
     fn backend(&self) -> &'static str {
         "fake"
     }

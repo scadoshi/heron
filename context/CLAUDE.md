@@ -60,7 +60,7 @@ src/
     │   ├── counts/          models, ports (CountsSource, CountsService), services (the sweep)
     │   └── stats/
     │       ├── models/      repo_name, cache_key, repo_stats, snapshot, portfolio_stats, errors
-    │       ├── ports.rs     StatsSource, StatsCache, StatsService + erased twin
+    │       ├── ports.rs     StatsSource, Cache, StatsService + erased twin
     │       └── services.rs
     ├── inbound/http/
     │   ├── mod.rs           ApiError, AppState, build_router, HttpServer
@@ -105,7 +105,7 @@ To add a method to a service:
 
 ### Adding a cache adapter
 
-1. Implement `StatsCache` in a new file under `outbound/cache/`. Bytes in, bytes out. The service owns the encoding.
+1. Implement `Cache` in a new file under `outbound/cache/`. Bytes in, bytes out. The service owns the encoding.
 2. Add a variant to `CacheBackend` in `config.rs` and parse it from `CACHE_BACKEND`.
 3. Add the arm in `src/bin/heron.rs`.
 4. Run `tests/live_steller.rs` against it if it speaks RESP.

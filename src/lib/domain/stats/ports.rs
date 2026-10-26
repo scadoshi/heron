@@ -20,8 +20,9 @@ pub trait StatsSource: Clone + Send + Sync + 'static {
     ) -> impl Future<Output = Result<RepoStats, StatsError>> + Send;
 }
 
-/// A byte store with expiry. Bytes in and bytes out: the service owns the encoding.
-pub trait StatsCache: Clone + Send + Sync + 'static {
+/// A byte store with expiry, shared by stats, counts and the calendar and checked by
+/// health. Bytes in and bytes out: each service owns its encoding.
+pub trait Cache: Clone + Send + Sync + 'static {
     /// Name of the backend: `memory`, `steller`, or `layered`.
     fn backend(&self) -> &'static str;
 

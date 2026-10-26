@@ -13,7 +13,7 @@ use crate::domain::counts::ports::{CountsService, CountsSource};
 use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::repo_name::RepoName;
 use crate::domain::stats::models::snapshot::Snapshot;
-use crate::domain::stats::ports::{StatsCache, StatsService};
+use crate::domain::stats::ports::{Cache, StatsService};
 
 /// What the service measures and how long the cache keeps a measurement.
 #[derive(Debug, Clone)]
@@ -59,7 +59,7 @@ impl<S, C, T, K> fmt::Debug for Service<S, C, T, K> {
     }
 }
 
-impl<S: CountsSource, C: StatsCache, T: StatsService, K: Clock> Service<S, C, T, K> {
+impl<S: CountsSource, C: Cache, T: StatsService, K: Clock> Service<S, C, T, K> {
     /// Creates a counts service over the given adapters. `stats` is where a
     /// repository's `pushed_at` comes from.
     pub fn new(source: S, cache: C, stats: T, clock: K, settings: Settings) -> Self {
@@ -132,9 +132,7 @@ impl<S: CountsSource, C: StatsCache, T: StatsService, K: Clock> Service<S, C, T,
     }
 }
 
-impl<S: CountsSource, C: StatsCache, T: StatsService, K: Clock> CountsService
-    for Service<S, C, T, K>
-{
+impl<S: CountsSource, C: Cache, T: StatsService, K: Clock> CountsService for Service<S, C, T, K> {
     async fn fetch_counts(&self, repo: &RepoName) -> Option<CountsReport> {
         let snapshot = self.read(&CacheKey::for_counts(repo)).await?;
         Some(CountsReport {

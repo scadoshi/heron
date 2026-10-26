@@ -15,7 +15,7 @@ use tokio::sync::Mutex;
 
 use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::errors::CacheError;
-use crate::domain::stats::ports::StatsCache;
+use crate::domain::stats::ports::Cache;
 use crate::outbound::cache::steller::connection::{Connection, ConnectionError};
 use crate::outbound::cache::steller::resp::Reply;
 
@@ -114,7 +114,7 @@ fn unexpected(command: &str, reply: &Reply) -> CacheError {
     CacheError(anyhow::anyhow!("unexpected reply to {command}: {reply:?}"))
 }
 
-impl StatsCache for StellerCache {
+impl Cache for StellerCache {
     fn backend(&self) -> &'static str {
         "steller"
     }

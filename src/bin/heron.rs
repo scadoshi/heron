@@ -7,7 +7,7 @@ use heron::config::{CacheBackend, Config};
 use heron::domain::calendar::ports::ErasedCalendarService;
 use heron::domain::counts::ports::ErasedCountsService;
 use heron::domain::health::ports::ErasedHealthService;
-use heron::domain::stats::ports::{ErasedStatsService, StatsCache};
+use heron::domain::stats::ports::{Cache, ErasedStatsService};
 use heron::domain::{calendar, counts, health, stats};
 use heron::inbound::http::{HttpServer, HttpServerConfig};
 use heron::outbound::cache::layered::LayeredCache;
@@ -128,7 +128,7 @@ type Services = (
     Arc<dyn ErasedCalendarService>,
 );
 
-fn services<C: StatsCache>(
+fn services<C: Cache>(
     github: GitHub,
     tarball: Tarball,
     cache: C,

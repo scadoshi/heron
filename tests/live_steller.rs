@@ -20,7 +20,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use common::{StubSource, TestClock, repo};
 use heron::domain::stats;
 use heron::domain::stats::models::cache_key::CacheKey;
-use heron::domain::stats::ports::{StatsCache, StatsService};
+use heron::domain::stats::ports::{Cache, StatsService};
 use heron::outbound::cache::steller::StellerCache;
 
 fn steller() -> StellerCache {

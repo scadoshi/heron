@@ -26,7 +26,7 @@ The arrow is the direction of `use`. `domain` imports from neither side. `inboun
 |---|---|---|
 | `Clock` | `domain/clock/mod.rs` | `outbound::clock::SystemClock` |
 | `StatsSource` | `domain/stats/ports.rs` | `outbound::github::GitHub` |
-| `StatsCache` | `domain/stats/ports.rs` | `MemoryCache`, `StellerCache`, `LayeredCache` |
+| `Cache` | `domain/stats/ports.rs` | `MemoryCache`, `StellerCache`, `LayeredCache` |
 | `StatsService` | `domain/stats/ports.rs` | `domain::stats::services::Service` |
 | `CountsSource` | `domain/counts/ports.rs` | `outbound::tarball::Tarball` |
 | `CountsService` | `domain/counts/ports.rs` | `domain::counts::services::Service` |
@@ -57,7 +57,7 @@ The next request inside the fresh window stops at step 5.
 
 Two windows, and the difference between them is the point.
 
-`STATS_FRESH_SECS` is how long a snapshot is served without asking GitHub. It is written into the snapshot as `fresh_until`. `STATS_RETAIN_SECS` is how long the cache keeps the bytes, passed to `StatsCache::set`.
+`STATS_FRESH_SECS` is how long a snapshot is served without asking GitHub. It is written into the snapshot as `fresh_until`. `STATS_RETAIN_SECS` is how long the cache keeps the bytes, passed to `Cache::set`.
 
 Between the two, a snapshot is stale but still there. When a refresh fails in that stretch, the stale snapshot is served with `stale: true`. Config refuses to start unless the retain window is the longer one.
 

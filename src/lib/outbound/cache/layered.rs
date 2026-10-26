@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::errors::CacheError;
-use crate::domain::stats::ports::StatsCache;
+use crate::domain::stats::ports::Cache;
 
 /// A primary cache with a secondary behind it.
 ///
@@ -26,7 +26,7 @@ pub struct LayeredCache<P, S> {
     primary_down: Arc<AtomicBool>,
 }
 
-impl<P: StatsCache, S: StatsCache> LayeredCache<P, S> {
+impl<P: Cache, S: Cache> LayeredCache<P, S> {
     /// Stacks `primary` over `secondary`.
     pub fn new(primary: P, secondary: S, retain: Duration) -> Self {
         Self {
@@ -66,7 +66,7 @@ impl<P: StatsCache, S: StatsCache> LayeredCache<P, S> {
     }
 }
 
-impl<P: StatsCache, S: StatsCache> StatsCache for LayeredCache<P, S> {
+impl<P: Cache, S: Cache> Cache for LayeredCache<P, S> {
     fn backend(&self) -> &'static str {
         "layered"
     }

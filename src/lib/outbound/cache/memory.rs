@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::errors::CacheError;
-use crate::domain::stats::ports::StatsCache;
+use crate::domain::stats::ports::Cache;
 
 /// Bytes and the instant they expire, by key.
 type Entries = HashMap<String, (Instant, Vec<u8>)>;
@@ -59,7 +59,7 @@ impl MemoryCache {
 
 /// Nothing here waits on anything, so each method does its work when called and
 /// returns a future that is already complete.
-impl StatsCache for MemoryCache {
+impl Cache for MemoryCache {
     fn backend(&self) -> &'static str {
         "memory"
     }

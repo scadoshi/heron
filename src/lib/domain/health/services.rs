@@ -1,8 +1,8 @@
-//! [`Service`], health checks over the stats cache.
+//! [`Service`], health checks over the cache.
 
 use crate::domain::health::models::HealthCheckFailed;
 use crate::domain::health::ports::HealthService;
-use crate::domain::stats::ports::StatsCache;
+use crate::domain::stats::ports::Cache;
 
 /// Health checks over the same cache adapter the stats service uses.
 #[derive(Debug, Clone)]
@@ -10,14 +10,14 @@ pub struct Service<C> {
     cache: C,
 }
 
-impl<C: StatsCache> Service<C> {
+impl<C: Cache> Service<C> {
     /// Creates a health service over `cache`.
     pub fn new(cache: C) -> Self {
         Self { cache }
     }
 }
 
-impl<C: StatsCache> HealthService for Service<C> {
+impl<C: Cache> HealthService for Service<C> {
     fn cache_backend(&self) -> &'static str {
         self.cache.backend()
     }

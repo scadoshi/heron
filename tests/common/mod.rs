@@ -39,7 +39,7 @@ use heron::domain::stats::models::cache_key::CacheKey;
 use heron::domain::stats::models::errors::{CacheError, StatsError};
 use heron::domain::stats::models::repo_name::RepoName;
 use heron::domain::stats::models::repo_stats::{Language, RepoStats, WeekCommits};
-use heron::domain::stats::ports::{StatsCache, StatsSource};
+use heron::domain::stats::ports::{Cache, StatsSource};
 use heron::domain::{calendar, counts, health, stats};
 use heron::inbound::http::{self, AppState};
 use heron::outbound::cache::memory::MemoryCache;
@@ -215,7 +215,7 @@ impl CalendarSource for StubCalendar {
 #[derive(Clone)]
 pub struct DeadCache;
 
-impl StatsCache for DeadCache {
+impl Cache for DeadCache {
     fn backend(&self) -> &'static str {
         "dead"
     }
@@ -276,7 +276,7 @@ impl TestApp {
     }
 
     /// An app serving `repos` from `cache`.
-    pub fn over<C: StatsCache>(repos: &[&str], cache: C) -> Self {
+    pub fn over<C: Cache>(repos: &[&str], cache: C) -> Self {
         let source = StubSource::default();
         let clock = TestClock::default();
         let stats_service = stats::services::Service::new(

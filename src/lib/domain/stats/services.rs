@@ -16,7 +16,7 @@ use crate::domain::stats::models::portfolio_stats::{PortfolioStats, Totals};
 use crate::domain::stats::models::repo_name::RepoName;
 use crate::domain::stats::models::repo_stats::{RepoReport, RepoStats};
 use crate::domain::stats::models::snapshot::Snapshot;
-use crate::domain::stats::ports::{StatsCache, StatsService, StatsSource};
+use crate::domain::stats::ports::{Cache, StatsService, StatsSource};
 
 /// What the service is allowed to serve and for how long.
 #[derive(Debug, Clone)]
@@ -56,7 +56,7 @@ impl<S, C, K> fmt::Debug for Service<S, C, K> {
     }
 }
 
-impl<S: StatsSource, C: StatsCache, K: Clock> Service<S, C, K> {
+impl<S: StatsSource, C: Cache, K: Clock> Service<S, C, K> {
     /// Creates a stats service over the given adapters.
     pub fn new(source: S, cache: C, clock: K, settings: Settings) -> Self {
         let refresh_locks = settings
@@ -182,7 +182,7 @@ impl<S: StatsSource, C: StatsCache, K: Clock> Service<S, C, K> {
     }
 }
 
-impl<S: StatsSource, C: StatsCache, K: Clock> StatsService for Service<S, C, K> {
+impl<S: StatsSource, C: Cache, K: Clock> StatsService for Service<S, C, K> {
     async fn fetch_repo_stats(&self, repo: &RepoName) -> Result<RepoReport, StatsError> {
         self.resolve(repo).await
     }
