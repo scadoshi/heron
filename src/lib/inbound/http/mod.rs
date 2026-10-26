@@ -5,10 +5,11 @@ pub mod handlers;
 pub mod middleware;
 pub mod routes;
 
-use std::fmt;
+use std::future::{self, Future};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
+use std::{fmt, io};
 
 use anyhow::Context;
 use axum::Router;
@@ -304,23 +305,30 @@ impl HttpServer {
 
 /// Resolves on SIGINT (Ctrl-C) or SIGTERM (systemd `stop`).
 async fn shutdown_signal() {
-    let ctrl_c = async {
-        let _ = tokio::signal::ctrl_c().await;
-    };
+    let ctrl_c = signalled("SIGINT", tokio::signal::ctrl_c());
 
     #[cfg(unix)]
-    let terminate = async {
+    let terminate = signalled("SIGTERM", async {
         use tokio::signal::unix::{self, SignalKind};
-        if let Ok(mut stream) = unix::signal(SignalKind::terminate()) {
-            stream.recv().await;
-        }
-    };
+        unix::signal(SignalKind::terminate())?.recv().await;
+        Ok(())
+    });
     #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
+    let terminate = future::pending::<()>();
 
     tokio::select! {
         () = ctrl_c => tracing::info!("shutdown signal received (SIGINT)"),
         () = terminate => tracing::info!("shutdown signal received (SIGTERM)"),
+    }
+}
+
+/// Resolves when `signal` arrives. A handler that cannot be registered is logged and
+/// never resolves, so the other signal still stops the server and this one does not
+/// stop it the moment it starts.
+async fn signalled(name: &str, signal: impl Future<Output = io::Result<()>>) {
+    if let Err(error) = signal.await {
+        tracing::error!("cannot listen for {name}, so it will not stop the server: {error}");
+        future::pending::<()>().await;
     }
 }
 
@@ -330,6 +338,16 @@ mod tests {
 
     use super::*;
     use crate::test_support::repo;
+
+    #[tokio::test]
+    async fn a_signal_that_cannot_be_registered_never_triggers_shutdown() {
+        let failed = std::future::ready(Err(io::Error::other("no signal handler")));
+        let waited = tokio::time::timeout(Duration::from_millis(50), signalled("SIGINT", failed));
+        assert!(
+            waited.await.is_err(),
+            "a failed registration resolved, which would shut the server down"
+        );
+    }
 
     async fn body_of(error: ApiError) -> (StatusCode, String) {
         let response = error.into_response();
