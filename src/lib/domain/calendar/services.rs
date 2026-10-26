@@ -26,7 +26,7 @@ pub struct Settings {
 
 /// Calendar service: reads through the cache and refreshes from the source.
 #[derive(Clone)]
-pub struct Service<S: CalendarSource, C: StatsCache, K: Clock> {
+pub struct Service<S, C, K> {
     source: S,
     cache: C,
     clock: K,
@@ -39,7 +39,7 @@ pub struct Service<S: CalendarSource, C: StatsCache, K: Clock> {
 
 /// Prints the settings only: the adapters need not be `Debug`, and the refresh
 /// lock is never taken to print it.
-impl<S: CalendarSource, C: StatsCache, K: Clock> fmt::Debug for Service<S, C, K> {
+impl<S, C, K> fmt::Debug for Service<S, C, K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Service")
             .field("login", &self.login)

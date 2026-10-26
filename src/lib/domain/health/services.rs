@@ -4,7 +4,7 @@ use crate::domain::stats::ports::StatsCache;
 
 /// Health checks over the same cache adapter the stats service uses.
 #[derive(Debug, Clone)]
-pub struct Service<C: StatsCache> {
+pub struct Service<C> {
     cache: C,
 }
 

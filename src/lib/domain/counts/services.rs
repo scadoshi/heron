@@ -26,7 +26,7 @@ pub struct Settings {
 
 /// Counts service: the sweep writes, requests read.
 #[derive(Clone)]
-pub struct Service<S: CountsSource, C: StatsCache, T: StatsService, K: Clock> {
+pub struct Service<S, C, T, K> {
     source: S,
     cache: C,
     stats: T,
@@ -48,7 +48,7 @@ fn needs_measuring(cached: Option<&Snapshot<Counts>>, pushed_at: Option<DateTime
 
 /// Prints the settings only: the adapters need not be `Debug`, and the sweep
 /// lock is never taken to print it.
-impl<S: CountsSource, C: StatsCache, T: StatsService, K: Clock> fmt::Debug for Service<S, C, T, K> {
+impl<S, C, T, K> fmt::Debug for Service<S, C, T, K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Service")
             .field("repos", &self.repos)

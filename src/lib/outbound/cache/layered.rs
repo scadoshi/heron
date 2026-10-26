@@ -15,7 +15,7 @@ use crate::domain::stats::ports::StatsCache;
 /// so the secondary holds what was last served when the primary goes away. A write
 /// fails only when both do.
 #[derive(Debug, Clone)]
-pub struct LayeredCache<P: StatsCache, S: StatsCache> {
+pub struct LayeredCache<P, S> {
     primary: P,
     secondary: S,
     /// How long the secondary keeps a value copied from the primary. The primary does
