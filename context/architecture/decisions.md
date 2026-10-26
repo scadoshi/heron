@@ -184,11 +184,11 @@ The API reports `additions` and `deletions` from GitHub's contributor statistics
 
 ---
 
-## `main` returns `ExitCode`
+## `main` exits non-zero on any startup failure
 
 **Decided: 2026-09-29.**
 
-Any startup failure exits 1.
+Any startup failure exits 1: `main` returns `anyhow::Result`, which prints the error chain to stderr as `Error: ...`.
 
 **Why:** systemd's `Restart=on-failure` reads the exit code. A server that prints an error and exits 0 is left stopped. steller had exactly this until 165dd03.
 
