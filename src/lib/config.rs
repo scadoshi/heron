@@ -203,13 +203,12 @@ impl Config {
 
         let stats_fresh = seconds(&optional, STATS_FRESH_SECS_KEY, STATS_FRESH_SECS_DEFAULT)?;
         let stats_retain = seconds(&optional, STATS_RETAIN_SECS_KEY, STATS_RETAIN_SECS_DEFAULT)?;
-        if stats_retain <= stats_fresh {
-            bail!(
-                "{STATS_RETAIN_SECS_KEY} ({}) must exceed {STATS_FRESH_SECS_KEY} ({}), or a snapshot is dropped the moment it goes stale and nothing can cover for GitHub",
-                stats_retain.as_secs(),
-                stats_fresh.as_secs()
-            );
-        }
+        retain_exceeds(
+            stats_retain,
+            stats_fresh,
+            STATS_FRESH_SECS_KEY,
+            "a snapshot",
+        )?;
 
         let counts_sweep = seconds(&optional, COUNTS_SWEEP_SECS_KEY, COUNTS_SWEEP_SECS_DEFAULT)?;
         let counts_retain = seconds(
@@ -222,21 +221,18 @@ impl Config {
             |dir| PathBuf::from(dir.trim()),
         );
 
-        let github_login = if let Some(raw) = optional(GITHUB_LOGIN_KEY) {
-            Login::new(&raw).with_context(|| format!("invalid {GITHUB_LOGIN_KEY}: {raw:?}"))?
-        } else if let Some(first) = github_repos.first() {
-            Login::from(first)
-        } else {
-            // The loop above never leaves the allowlist empty; this names the key if
-            // it ever does.
-            bail!(
-                "{GITHUB_REPOS_KEY} names no repository, so {GITHUB_LOGIN_KEY} has no owner to default to"
-            );
-        };
+        let github_login = github_login(&optional, &github_repos)?;
         let calendar_fresh = seconds(
             &optional,
             CALENDAR_FRESH_SECS_KEY,
             CALENDAR_FRESH_SECS_DEFAULT,
+        )?;
+        // The calendar is kept for the stats retain window.
+        retain_exceeds(
+            stats_retain,
+            calendar_fresh,
+            CALENDAR_FRESH_SECS_KEY,
+            "the calendar",
         )?;
 
         let rust_log = optional(RUST_LOG_KEY).unwrap_or_else(|| RUST_LOG_DEFAULT.to_string());
@@ -276,6 +272,23 @@ fn steller_address(
     Ok(address)
 }
 
+/// `GITHUB_LOGIN` when set, otherwise the owner of the first allowlisted repository.
+fn github_login(
+    optional: &impl Fn(&str) -> Option<String>,
+    github_repos: &[RepoName],
+) -> anyhow::Result<Login> {
+    if let Some(raw) = optional(GITHUB_LOGIN_KEY) {
+        return Login::new(&raw).with_context(|| format!("invalid {GITHUB_LOGIN_KEY}: {raw:?}"));
+    }
+    let Some(first) = github_repos.first() else {
+        // Parsing never leaves the allowlist empty; this names the key if it ever does.
+        bail!(
+            "{GITHUB_REPOS_KEY} names no repository, so {GITHUB_LOGIN_KEY} has no owner to default to"
+        );
+    };
+    Ok(Login::from(first))
+}
+
 /// Reads a positive number of seconds, or the default when unset.
 fn seconds(
     optional: &impl Fn(&str) -> Option<String>,
@@ -289,6 +302,24 @@ fn seconds(
         Ok(secs) if secs > 0 => Ok(Duration::from_secs(secs)),
         _ => bail!("invalid {key}: {raw:?} (expected a positive number of seconds)"),
     }
+}
+
+/// Fails unless `retain` is longer than the `fresh` window read from `fresh_key`.
+/// `what` names the cached value in the message.
+fn retain_exceeds(
+    retain: Duration,
+    fresh: Duration,
+    fresh_key: &str,
+    what: &str,
+) -> anyhow::Result<()> {
+    if retain <= fresh {
+        bail!(
+            "{STATS_RETAIN_SECS_KEY} ({}) must exceed {fresh_key} ({}), or {what} is dropped the moment it goes stale and nothing can cover for GitHub",
+            retain.as_secs(),
+            fresh.as_secs()
+        );
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -433,7 +464,34 @@ mod tests {
             let message = error(&[("STATS_FRESH_SECS", fresh), ("STATS_RETAIN_SECS", retain)]);
             assert!(message.contains("must exceed"), "{message}");
         }
-        assert!(load(&[("STATS_FRESH_SECS", "600"), ("STATS_RETAIN_SECS", "601")]).is_ok());
+        assert!(
+            load(&[
+                ("STATS_FRESH_SECS", "600"),
+                ("CALENDAR_FRESH_SECS", "60"),
+                ("STATS_RETAIN_SECS", "601"),
+            ])
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn the_retain_window_must_exceed_the_calendar_fresh_window() {
+        for (fresh, retain) in [("700", "700"), ("700", "650")] {
+            let message = error(&[
+                ("STATS_FRESH_SECS", "600"),
+                ("CALENDAR_FRESH_SECS", fresh),
+                ("STATS_RETAIN_SECS", retain),
+            ]);
+            assert!(message.contains("CALENDAR_FRESH_SECS"), "{message}");
+        }
+        assert!(
+            load(&[
+                ("STATS_FRESH_SECS", "600"),
+                ("CALENDAR_FRESH_SECS", "700"),
+                ("STATS_RETAIN_SECS", "701"),
+            ])
+            .is_ok()
+        );
     }
 
     #[test]
