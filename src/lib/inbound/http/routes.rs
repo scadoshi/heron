@@ -92,6 +92,9 @@ pub fn routes() -> anyhow::Result<Router<AppState>> {
             .finish()
             .context("rate limit config: burst and period must be non-zero")?,
     );
+    spawn_pruning(limit.limiter(), PRUNE_EVERY, |limiter| {
+        limiter.retain_recent();
+    });
 
     let cache_control: CacheHeaderFn = cache_successes;
     let stats_routes = Router::new()
@@ -108,4 +111,63 @@ pub fn routes() -> anyhow::Result<Router<AppState>> {
         .route(CACHE_HEALTH_ROUTE, get(health::cache_health))
         .merge(stats_routes)
         .layer(GovernorLayer::new(limit).error_handler(rate_limited)))
+}
+
+/// How often the rate limiter forgets addresses it has not seen for a full
+/// replenish.
+const PRUNE_EVERY: Duration = Duration::from_mins(1);
+
+/// Calls `prune` on `limiter` every `every` until the limiter is dropped. The task
+/// holds only a weak reference, so it ends with the router. Outside a tokio runtime
+/// there is nothing to spawn on and nothing is pruned.
+fn spawn_pruning<T: Send + Sync + 'static>(
+    limiter: &Arc<T>,
+    every: Duration,
+    prune: impl Fn(&T) + Send + 'static,
+) {
+    let Ok(runtime) = tokio::runtime::Handle::try_current() else {
+        return;
+    };
+    let limiter = Arc::downgrade(limiter);
+    runtime.spawn(async move {
+        let mut ticks = tokio::time::interval(every);
+        // The first tick is immediate, and there is nothing to prune yet.
+        ticks.tick().await;
+        loop {
+            ticks.tick().await;
+            let Some(limiter) = limiter.upgrade() else {
+                break;
+            };
+            prune(&limiter);
+        }
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::IpAddr;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn idle_rate_limit_keys_are_pruned() {
+        let config = GovernorConfigBuilder::default()
+            .per_millisecond(1)
+            .burst_size(1)
+            .key_extractor(CfConnectingIpKeyExtractor)
+            .finish()
+            .unwrap();
+        let limiter = config.limiter();
+        for last in 1..=3 {
+            let ip = IpAddr::from([10, 0, 0, last]);
+            assert!(limiter.check_key(&ip).is_ok(), "first request from {ip}");
+        }
+        assert_eq!(limiter.len(), 3);
+
+        spawn_pruning(limiter, Duration::from_millis(5), |limiter| {
+            limiter.retain_recent();
+        });
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(limiter.len(), 0, "idle addresses were kept");
+    }
 }
