@@ -146,6 +146,9 @@ fn language_of(repo: &Path) -> io::Result<Option<Language>> {
 
 /// Calls `visit` with the text of every source file under `dir`, skipping hidden
 /// directories and the ones in `SKIPPED`. A file that is not UTF-8 is skipped.
+///
+/// Symlinks are skipped, not followed: a checkout is untrusted, and a link can
+/// loop back on itself or point at files outside it.
 fn walk(dir: &Path, language: Language, visit: &mut dyn FnMut(&str)) -> io::Result<()> {
     let mut entries: Vec<_> = fs::read_dir(dir)?.collect::<Result<_, _>>()?;
     entries.sort_by_key(fs::DirEntry::path);
@@ -153,11 +156,13 @@ fn walk(dir: &Path, language: Language, visit: &mut dyn FnMut(&str)) -> io::Resu
         let path = entry.path();
         let name = entry.file_name();
         let name = name.to_string_lossy();
-        if path.is_dir() {
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
             if !name.starts_with('.') && !SKIPPED.contains(&name.as_ref()) {
                 walk(&path, language, visit)?;
             }
-        } else if path.extension().and_then(|e| e.to_str()) == Some(language.extension())
+        } else if file_type.is_file()
+            && path.extension().and_then(|e| e.to_str()) == Some(language.extension())
             && let Ok(source) = fs::read_to_string(&path)
         {
             visit(&source);
@@ -237,6 +242,22 @@ mod tests {
                 clippy_lints: Some(1),
             })
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinks_are_not_followed_into_loops_or_out_of_the_checkout() {
+        let outside = Checkout::new("symlink_outside");
+        outside.write("big.rs", &"// line\n".repeat(1000));
+        let checkout = Checkout::new("symlinks");
+        checkout
+            .write("Cargo.toml", "[package]\nname = \"x\"\n")
+            .write("src/lib.rs", "pub fn a() {}\n");
+        std::os::unix::fs::symlink(".", checkout.0.join("src/loop")).unwrap();
+        std::os::unix::fs::symlink(outside.0.join("big.rs"), checkout.0.join("src/outside.rs"))
+            .unwrap();
+        let counts = measure(&checkout.0).unwrap().unwrap();
+        assert_eq!(counts.lines, 1, "only src/lib.rs is inside the checkout");
     }
 
     #[test]
