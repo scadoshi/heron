@@ -7,7 +7,10 @@ use crate::domain::stats::models::repo_stats::{RepoReport, WeekCommits};
 
 /// Sums across the repositories that resolved.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-#[allow(missing_docs)]
+#[expect(
+    missing_docs,
+    reason = "the repository, commit and star sums explain themselves"
+)]
 pub struct Totals {
     pub repos: u32,
     pub commits: u64,

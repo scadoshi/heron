@@ -1,9 +1,12 @@
 //! In-memory fakes for the ports, shared by unit tests across modules. Compiled only
 //! under `#[cfg(test)]`.
 
-// Test-only helpers: names carry the meaning, and overflow in a counter is a bug in
-// the test worth panicking on.
-#![allow(missing_docs, clippy::arithmetic_side_effects)]
+#![expect(
+    missing_docs,
+    clippy::arithmetic_side_effects,
+    clippy::missing_panics_doc,
+    reason = "test-only fakes: names carry the meaning, and an overflowing counter or a poisoned lock is a test bug worth panicking on"
+)]
 
 use std::collections::HashMap;
 use std::future::{Future, ready};

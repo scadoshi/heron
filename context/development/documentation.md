@@ -44,11 +44,11 @@ pub struct RepoName
 
 ## Skip it
 
-**Fields that restate their names.** Use `#[allow(missing_docs)]` on the container, with a doc comment on the container itself:
+**Fields that restate their names.** Use `#[expect(missing_docs, reason = "...")]` on the container, with a doc comment on the container itself:
 
 ```rust
 /// Sums across the repositories that resolved.
-#[allow(missing_docs)]
+#[expect(missing_docs, reason = "the sums explain themselves")]
 pub struct Totals {
     pub repos: u32,
     pub commits: u64,

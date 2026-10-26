@@ -2,18 +2,21 @@ use serde::Serialize;
 
 /// Body of `GET /`.
 #[derive(Debug, Serialize)]
-#[allow(missing_docs)]
 pub struct HttpRoot {
+    /// The package name, `heron`.
     pub message: &'static str,
+    /// The running build's package version, as in `Cargo.toml`.
     pub version: &'static str,
+    /// Always `ready`.
     pub status: &'static str,
 }
 
 /// Body of `GET /health`.
 #[derive(Debug, Serialize)]
-#[allow(missing_docs)]
 pub struct HttpHealth {
+    /// Always `healthy`: a server that can answer is up.
     pub status: &'static str,
+    /// The running build's package version, as in `Cargo.toml`.
     pub version: &'static str,
 }
 

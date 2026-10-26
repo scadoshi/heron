@@ -6,11 +6,10 @@
 //!
 //! The same tests should pass against Redis, which is what Redis-compatible means.
 
-#![allow(
+#![expect(
     clippy::unwrap_used,
     clippy::expect_used,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects
+    reason = "a test: its helpers panic on a missing or misconfigured steller"
 )]
 
 mod common;

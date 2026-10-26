@@ -1,7 +1,5 @@
 //! Root and health endpoints through the real router.
 
-#![allow(clippy::unwrap_used, clippy::indexing_slicing)]
-
 mod common;
 
 use axum::http::StatusCode;

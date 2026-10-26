@@ -4,15 +4,16 @@
 //! memory cache, with a stub behind the source port and a clock the test moves.
 //! Requests go through `tower::ServiceExt::oneshot`: no socket, full middleware stack.
 
-// Not every test file uses every helper, and clippy.toml's in-tests allowances do not
-// reach helpers that are not marked `#[test]`.
 #![allow(
     dead_code,
+    reason = "each test binary uses a different subset of these helpers, so an expect would go unfulfilled in some"
+)]
+#![expect(
+    unreachable_pub,
     clippy::unwrap_used,
-    clippy::expect_used,
     clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects
+    clippy::arithmetic_side_effects,
+    reason = "test helpers: pub so each test crate can call them, and clippy.toml's in-tests allowances do not reach code outside `#[test]`"
 )]
 
 use std::collections::HashMap;

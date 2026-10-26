@@ -33,9 +33,9 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --locked   # rustdoc 
 
 Lint levels live in `Cargo.toml` under `[lints.clippy]`. The panic family (`unwrap`, `expect`, `panic`, indexing, slicing) is denied outside tests, and `clippy.toml` allows it inside them.
 
-That allowance only reaches code marked `#[test]` or `#[cfg(test)]`. Helper functions in `tests/` are neither, so each file there opens with its own `#![allow(...)]`.
+That allowance only reaches code marked `#[test]` or `#[cfg(test)]`. Helper functions in `tests/` are neither, so each file whose helpers trip one opens with its own `#![expect(..., reason = "...")]`, listing only the lints that fire. `tests/common/mod.rs` keeps `dead_code` as an `#![allow(dead_code, reason = "...")]`, since each test binary uses a different subset of its helpers.
 
-Do not silence a lint to get past it. Where an allow is right, put it on the smallest item and write the reason beside it.
+Do not silence a lint to get past it. Where a suppression is right, make it an `#[expect(..., reason = "...")]` on the smallest item.
 
 **CI lints with the newest stable Rust, and `pedantic` gains lints with each release.** Clippy can pass here and fail there when this machine is a release behind. If CI fails on a lint you cannot reproduce, compare `rustc --version` with the version in the CI log, then install that release beside your own and lint with it:
 

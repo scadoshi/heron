@@ -37,7 +37,10 @@ async fn main() -> ExitCode {
         Err(error) => {
             // Tracing may not be up yet, and systemd reads the exit code to decide
             // whether to restart.
-            #[allow(clippy::print_stderr)]
+            #[expect(
+                clippy::print_stderr,
+                reason = "tracing may not be up yet, so the failure goes to stderr directly"
+            )]
             {
                 eprintln!("heron failed: {error:#}");
             }

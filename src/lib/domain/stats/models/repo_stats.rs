@@ -5,7 +5,10 @@ use crate::domain::stats::models::repo_name::RepoName;
 
 /// Bytes of one language in a repository, as GitHub's linguist counts them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
+#[expect(
+    missing_docs,
+    reason = "the struct doc says what the name and the byte count are"
+)]
 pub struct Language {
     pub name: String,
     pub bytes: u64,

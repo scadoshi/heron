@@ -59,7 +59,10 @@ mod tests {
     #[test]
     fn a_struct_holding_a_secret_stays_redacted() {
         #[derive(Debug)]
-        #[allow(dead_code)]
+        #[expect(
+            dead_code,
+            reason = "the field is read only by the derived Debug, which dead_code ignores"
+        )]
         struct Holder {
             token: Secret,
         }

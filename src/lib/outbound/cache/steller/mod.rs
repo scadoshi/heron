@@ -147,9 +147,10 @@ impl StatsCache for StellerCache {
 
 #[cfg(test)]
 mod tests {
-    // The fake server below is test code that clippy.toml's in-tests allowances do
-    // not reach, since its helpers are not marked `#[test]`.
-    #![allow(clippy::arithmetic_side_effects)]
+    #![expect(
+        clippy::arithmetic_side_effects,
+        reason = "the fake server is test code whose helpers clippy.toml's in-tests allowances do not reach"
+    )]
 
     use std::collections::HashMap;
     use std::sync::atomic::{AtomicU32, Ordering};

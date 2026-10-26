@@ -41,7 +41,10 @@ use crate::domain::stats::ports::ErasedStatsService;
 /// `ServiceUnavailable` carry detail for the log and send a fixed body, so nothing
 /// internal reaches a client. `NotFound` sends its message as is.
 #[derive(Debug, Error, Clone)]
-#[allow(missing_docs)]
+#[expect(
+    missing_docs,
+    reason = "each variant is the HTTP status it answers with, and the enum says what each sends"
+)]
 pub enum ApiError {
     #[error("{0}")]
     InternalServerError(String),
@@ -146,7 +149,10 @@ pub struct HttpServerConfig<'a> {
 /// Services are held as type-erased trait objects (see the `ErasedXService` twins in
 /// each domain's ports) so handlers stay free of generic parameters.
 #[derive(Clone)]
-#[allow(missing_docs)]
+#[expect(
+    missing_docs,
+    reason = "each field is the erased service its name says"
+)]
 pub struct AppState {
     pub stats_service: Arc<dyn ErasedStatsService>,
     pub health_service: Arc<dyn ErasedHealthService>,

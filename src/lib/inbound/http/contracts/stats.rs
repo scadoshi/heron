@@ -9,9 +9,10 @@ use crate::domain::stats::models::repo_stats::{Language, RepoReport, WeekCommits
 
 /// One language of a repository.
 #[derive(Debug, Serialize)]
-#[allow(missing_docs)]
 pub struct HttpLanguage {
+    /// The language as GitHub's linguist names it: `Rust`, `Shell`.
     pub name: String,
+    /// GitHub's byte count for that language in the repository.
     pub bytes: u64,
 }
 

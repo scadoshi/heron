@@ -19,8 +19,10 @@ mod rfc3339 {
     pub mod option {
         use super::{DateTime, SecondsFormat, Serializer, Utc};
 
-        // serde's `serialize_with` passes a reference to the field.
-        #[allow(clippy::ref_option)]
+        #[expect(
+            clippy::ref_option,
+            reason = "serde's `serialize_with` passes a reference to the field"
+        )]
         pub fn serialize<S: Serializer>(
             at: &Option<DateTime<Utc>>,
             s: S,

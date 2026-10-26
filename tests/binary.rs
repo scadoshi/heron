@@ -1,11 +1,11 @@
 //! The real executable, started the way systemd starts it: environment only, no
 //! terminal, stopped with SIGTERM. GitHub is an in-process fake.
 
-#![allow(
+#![expect(
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
-    clippy::indexing_slicing
+    reason = "a test: its helpers panic on a broken setup"
 )]
 
 use std::net::SocketAddr;
