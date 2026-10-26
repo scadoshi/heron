@@ -18,6 +18,11 @@ use crate::domain::stats::models::repo_stats::{RepoReport, RepoStats};
 use crate::domain::stats::models::snapshot::{self, Snapshot};
 use crate::domain::stats::ports::{Cache, StatsService, StatsSource};
 
+/// How long an answer still missing GitHub's computed statistics is served before
+/// the source is asked again. GitHub usually finishes computing within a minute of
+/// the first ask.
+const COMPUTING_FRESH: TimeDelta = TimeDelta::minutes(1);
+
 /// What the service is allowed to serve and for how long.
 #[derive(Debug, Clone)]
 pub struct Settings {
@@ -117,7 +122,14 @@ impl<S: StatsSource, C: Cache, K: Clock> Service<S, C, K> {
                         .take()
                         .or_else(|| known.weekly_commits.clone());
                 }
-                let fetched = Snapshot::new(stats, self.clock.now(), self.fresh);
+                // Still missing after the merge means GitHub has never answered with
+                // them, so the answer is held only briefly.
+                let fresh = if stats.additions.is_none() || stats.weekly_commits.is_none() {
+                    self.fresh.min(COMPUTING_FRESH)
+                } else {
+                    self.fresh
+                };
+                let fetched = Snapshot::new(stats, self.clock.now(), fresh);
                 snapshot::write(&self.cache, &key, &fetched, self.retain).await;
                 Ok(RepoReport {
                     stats: fetched.value,
@@ -382,5 +394,33 @@ mod tests {
         assert_eq!(second.stats.deletions, Some(100));
         assert!(!second.stale, "a refresh that answered is not stale");
         assert_eq!(source.calls(), 2);
+    }
+
+    #[tokio::test]
+    async fn a_cold_answer_github_is_still_computing_is_asked_again_soon() {
+        let source = FakeSource::default();
+        let clock = FakeClock::default();
+        let service = Service::new(
+            source.clone(),
+            FakeCache::default(),
+            clock.clone(),
+            Settings {
+                repos: vec![repo("a/b")],
+                fresh: Duration::from_hours(6),
+                retain: Duration::from_hours(7 * 24),
+            },
+        );
+        source.set_computed(false);
+        let first = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
+        assert_eq!(
+            first.stats.additions, None,
+            "the fake answers without stats"
+        );
+
+        source.set_computed(true);
+        clock.advance(Duration::from_mins(1));
+        let second = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
+        assert_eq!(source.calls(), 2, "the incomplete answer was held as fresh");
+        assert_eq!(second.stats.additions, Some(500));
     }
 }
