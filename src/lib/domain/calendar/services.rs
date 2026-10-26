@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 use crate::domain::calendar::models::{Calendar, CalendarError, CalendarReport};
 use crate::domain::calendar::ports::{CalendarService, CalendarSource};
 use crate::domain::clock::Clock;
+use crate::domain::login::Login;
 use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::snapshot::Snapshot;
 use crate::domain::stats::ports::Cache;
@@ -18,7 +19,7 @@ use crate::domain::stats::ports::Cache;
 #[derive(Debug, Clone)]
 pub struct Settings {
     /// The GitHub account.
-    pub login: String,
+    pub login: Login,
     /// How long a calendar is served without asking GitHub again.
     pub fresh: Duration,
     /// How long the cache keeps one. The gap past `fresh` is the window in which
@@ -32,7 +33,7 @@ pub struct Service<S, C, K> {
     source: S,
     cache: C,
     clock: K,
-    login: Arc<str>,
+    login: Login,
     /// Concurrent callers on an expired calendar cause one refresh.
     refreshing: Arc<Mutex<()>>,
     fresh: TimeDelta,
@@ -58,7 +59,7 @@ impl<S: CalendarSource, C: Cache, K: Clock> Service<S, C, K> {
             source,
             cache,
             clock,
-            login: settings.login.into(),
+            login: settings.login,
             refreshing: Arc::new(Mutex::new(())),
             fresh: TimeDelta::from_std(settings.fresh).unwrap_or(TimeDelta::MAX),
             retain: settings.retain,
@@ -176,7 +177,7 @@ mod tests {
             FakeCache::default(),
             clock.clone(),
             Settings {
-                login: "scadoshi".to_string(),
+                login: Login::new("scadoshi").unwrap(),
                 fresh: Duration::from_secs(fresh_secs),
                 retain: Duration::from_hours(168),
             },
@@ -188,7 +189,7 @@ mod tests {
     async fn the_first_call_reads_github_and_the_next_one_reads_the_cache() {
         let (service, source, clock) = service(3600);
         let first = service.fetch_calendar().await.unwrap();
-        assert_eq!(first.calendar.login, "scadoshi");
+        assert_eq!(first.calendar.login.as_str(), "scadoshi");
         assert_eq!(first.calendar.total, 5099);
         assert!(!first.stale);
         clock.advance(Duration::from_secs(3599));

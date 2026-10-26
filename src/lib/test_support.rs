@@ -21,6 +21,7 @@ use crate::domain::calendar::ports::CalendarSource;
 use crate::domain::clock::Clock;
 use crate::domain::counts::models::{Counts, CountsError, Language};
 use crate::domain::counts::ports::CountsSource;
+use crate::domain::login::Login;
 use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::errors::{CacheError, StatsError};
 use crate::domain::stats::models::repo_name::RepoName;
@@ -402,14 +403,14 @@ impl fmt::Debug for FakeCalendar {
 /// Three days ending 2026-10-01, summing to whatever `total` the fake holds
 /// only when it is 5099; otherwise the days are the same and `total` differs,
 /// which is enough to tell answers apart.
-pub fn calendar_for(login: &str, total: u32) -> Calendar {
+pub fn calendar_for(login: &Login, total: u32) -> Calendar {
     let day = |d, count, level| Day {
         date: NaiveDate::from_ymd_opt(2026, 9, d).unwrap_or(NaiveDate::MIN),
         count,
         level,
     };
     Calendar {
-        login: login.to_string(),
+        login: login.clone(),
         total,
         days: vec![day(29, 0, 0), day(30, 12, 2), day(31, 48, 3)],
     }
@@ -432,7 +433,7 @@ impl FakeCalendar {
 impl CalendarSource for FakeCalendar {
     fn fetch_calendar(
         &self,
-        login: &str,
+        login: &Login,
     ) -> impl Future<Output = Result<Calendar, CalendarError>> + Send {
         let mut state = self.0.lock().unwrap();
         state.calls += 1;

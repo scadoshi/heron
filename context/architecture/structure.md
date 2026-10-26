@@ -14,7 +14,7 @@ The arrow is the direction of `use`. `domain` imports from neither side. `inboun
 
 | Layer | Holds | Knows about |
 |---|---|---|
-| `domain/` | `RepoName`, `Secret`, `CacheKey`, `RepoStats`, `Snapshot`, `CountsReport`, `Calendar`, the ports, the four services | nothing outside itself, plus the `measure` crate's `Counts` type |
+| `domain/` | `RepoName`, `Login`, `Secret`, `CacheKey`, `RepoStats`, `Snapshot`, `CountsReport`, `Calendar`, the ports, the four services | nothing outside itself, plus the `measure` crate's `Counts` type |
 | `inbound/http/` | `ApiError`, `AppState`, the router, handlers, `Http*` contracts | axum, and the domain's service ports |
 | `outbound/` | `GitHub`, `Tarball`, `MemoryCache`, `StellerCache`, `LayeredCache`, `SystemClock` | reqwest, TCP, the filesystem, the OS clock, and the domain's ports |
 | `measure/` | `measure()`, `Counts`, `Language`: a workspace crate that counts a checkout; a crate so the counting has no heron in it and tests on its own | the filesystem; nothing of heron |

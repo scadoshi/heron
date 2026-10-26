@@ -19,6 +19,7 @@ use thiserror::Error;
 
 use crate::domain::calendar::models::{Calendar, CalendarError, Day};
 use crate::domain::calendar::ports::CalendarSource;
+use crate::domain::login::Login;
 use crate::domain::secret::Secret;
 use crate::domain::stats::models::errors::StatsError;
 use crate::domain::stats::models::repo_name::RepoName;
@@ -313,13 +314,13 @@ impl StatsSource for GitHub {
 const CALENDAR_QUERY: &str = "query($login: String!) { user(login: $login) { contributionsCollection { contributionCalendar { totalContributions weeks { contributionDays { date contributionCount contributionLevel } } } } } }";
 
 impl GitHub {
-    async fn fetch_calendar(&self, login: &str) -> Result<Calendar, GitHubError> {
+    async fn fetch_calendar(&self, login: &Login) -> Result<Calendar, GitHubError> {
         let Some(token) = &self.token else {
             return Err(GitHubError::NoToken);
         };
         let body = serde_json::json!({
             "query": CALENDAR_QUERY,
-            "variables": { "login": login },
+            "variables": { "login": login.as_str() },
         });
         let response = self
             .client
@@ -355,7 +356,7 @@ impl GitHub {
             })
             .collect();
         Ok(Calendar {
-            login: login.to_string(),
+            login: login.clone(),
             total: calendar.total_contributions,
             days,
         })
@@ -363,7 +364,7 @@ impl GitHub {
 }
 
 impl CalendarSource for GitHub {
-    async fn fetch_calendar(&self, login: &str) -> Result<Calendar, CalendarError> {
+    async fn fetch_calendar(&self, login: &Login) -> Result<Calendar, CalendarError> {
         self.fetch_calendar(login)
             .await
             .map_err(|error| match error {

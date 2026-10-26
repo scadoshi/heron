@@ -208,7 +208,7 @@ pub struct HttpCalendar {
 impl From<CalendarReport> for HttpCalendar {
     fn from(report: CalendarReport) -> Self {
         Self {
-            login: report.calendar.login,
+            login: report.calendar.login.to_string(),
             total: report.calendar.total,
             days: report.calendar.days.into_iter().map(Into::into).collect(),
             fetched_at: report.fetched_at,

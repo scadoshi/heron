@@ -3,6 +3,7 @@
 use std::fmt;
 use std::ops::Deref;
 
+use crate::domain::login::Login;
 use crate::domain::stats::models::repo_name::RepoName;
 
 /// Version of the cached payloads' shape, shared by every kind of key. Bump it when
@@ -32,7 +33,7 @@ impl CacheKey {
     }
 
     /// The key for an account's contribution calendar: `heron:calendar:v1:login`.
-    pub fn for_calendar(login: &str) -> Self {
+    pub fn for_calendar(login: &Login) -> Self {
         Self(format!("heron:calendar:v{SCHEMA_VERSION}:{login}"))
     }
 }

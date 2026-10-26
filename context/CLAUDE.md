@@ -55,6 +55,7 @@ src/
     │   ├── mod.rs           BoxFuture alias
     │   ├── clock/           the time port
     │   ├── health/          models, ports, services
+    │   ├── login/           Login
     │   ├── secret/          Secret
     │   ├── calendar/        models, ports (CalendarSource, CalendarService), services
     │   ├── counts/          models, ports (CountsSource, CountsService), services (the sweep)

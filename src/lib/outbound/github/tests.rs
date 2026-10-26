@@ -601,10 +601,10 @@ async fn statistics_github_finishes_during_the_pause_come_back_on_the_second_ask
 async fn the_calendar_is_one_graphql_query_with_the_token_and_the_login() {
     let fake = Fake::default();
     let github = fake.serve(Some(TOKEN)).await;
-    let calendar = CalendarSource::fetch_calendar(&github, "scadoshi")
+    let calendar = CalendarSource::fetch_calendar(&github, &Login::new("scadoshi").unwrap())
         .await
         .unwrap();
-    assert_eq!(calendar.login, "scadoshi");
+    assert_eq!(calendar.login.as_str(), "scadoshi");
     assert_eq!(calendar.total, 61);
     assert_eq!(calendar.days.len(), 3);
     assert_eq!(calendar.days[0].level, 0);
@@ -624,7 +624,7 @@ async fn the_calendar_is_one_graphql_query_with_the_token_and_the_login() {
 async fn without_a_token_the_calendar_is_not_asked_for() {
     let fake = Fake::default();
     let github = fake.serve(None).await;
-    let error = CalendarSource::fetch_calendar(&github, "scadoshi")
+    let error = CalendarSource::fetch_calendar(&github, &Login::new("scadoshi").unwrap())
         .await
         .unwrap_err();
     assert!(matches!(error, CalendarError::NoToken), "{error}");
@@ -641,7 +641,7 @@ async fn a_graphql_error_in_the_body_is_upstream() {
         ..Fake::default()
     };
     let github = fake.serve(Some(TOKEN)).await;
-    let error = CalendarSource::fetch_calendar(&github, "nobody")
+    let error = CalendarSource::fetch_calendar(&github, &Login::new("nobody").unwrap())
         .await
         .unwrap_err();
     assert!(error.to_string().contains("Could not resolve"), "{error}");

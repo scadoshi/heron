@@ -4,6 +4,8 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::domain::login::Login;
+
 /// One day of the calendar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Day {
@@ -19,7 +21,7 @@ pub struct Day {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Calendar {
     /// GitHub login the calendar belongs to.
-    pub login: String,
+    pub login: Login,
     /// Contributions over the whole year.
     pub total: u32,
     /// Every day of the year, oldest first, without gaps.

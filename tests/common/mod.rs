@@ -35,6 +35,7 @@ use heron::domain::calendar::ports::{CalendarSource, ErasedCalendarService};
 use heron::domain::clock::Clock;
 use heron::domain::counts::models::{Counts, CountsError, Language};
 use heron::domain::counts::ports::{CountsSource, ErasedCountsService};
+use heron::domain::login::Login;
 use heron::domain::stats::models::cache_key::CacheKey;
 use heron::domain::stats::models::errors::{CacheError, StatsError};
 use heron::domain::stats::models::repo_name::RepoName;
@@ -194,7 +195,7 @@ pub struct StubCalendar;
 impl CalendarSource for StubCalendar {
     fn fetch_calendar(
         &self,
-        login: &str,
+        login: &Login,
     ) -> impl Future<Output = Result<Calendar, CalendarError>> + Send {
         let day = |d: u32, count, level| Day {
             date: NaiveDate::from_ymd_opt(2026, 9, d).unwrap(),
@@ -202,7 +203,7 @@ impl CalendarSource for StubCalendar {
             level,
         };
         future::ready(Ok(Calendar {
-            login: login.to_string(),
+            login: login.clone(),
             total: 61,
             days: vec![day(28, 0, 0), day(29, 13, 2), day(30, 48, 4)],
         }))
@@ -306,7 +307,7 @@ impl TestApp {
                 cache.clone(),
                 clock.clone(),
                 calendar::services::Settings {
-                    login: "scadoshi".to_string(),
+                    login: Login::new("scadoshi").unwrap(),
                     fresh: Duration::from_secs(FRESH_SECS),
                     retain: Duration::from_secs(FRESH_SECS * 10),
                 },

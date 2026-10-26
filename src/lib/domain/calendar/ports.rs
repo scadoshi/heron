@@ -5,13 +5,14 @@ use std::future::Future;
 
 use crate::domain::BoxFuture;
 use crate::domain::calendar::models::{Calendar, CalendarError, CalendarReport};
+use crate::domain::login::Login;
 
 /// Where the calendar is read from.
 pub trait CalendarSource: Clone + Send + Sync + 'static {
     /// The last year of contributions for `login`.
     fn fetch_calendar(
         &self,
-        login: &str,
+        login: &Login,
     ) -> impl Future<Output = Result<Calendar, CalendarError>> + Send;
 }
 

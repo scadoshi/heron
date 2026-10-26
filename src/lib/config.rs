@@ -10,6 +10,7 @@ use std::time::Duration;
 use anyhow::{Context, bail};
 use axum::http::HeaderValue;
 
+use crate::domain::login::Login;
 use crate::domain::secret::Secret;
 use crate::domain::stats::models::repo_name::RepoName;
 
@@ -116,7 +117,7 @@ pub struct Config {
     pub measure_dir: PathBuf,
 
     /// The account whose contribution calendar is served.
-    pub github_login: String,
+    pub github_login: Login,
 
     /// How long a calendar is served before GitHub is asked again. The cache keeps
     /// it for `stats_retain`.
@@ -215,15 +216,17 @@ impl Config {
             |dir| PathBuf::from(dir.trim()),
         );
 
-        let github_login = optional(GITHUB_LOGIN_KEY).map_or_else(
-            || {
-                github_repos
-                    .first()
-                    .map(|repo| repo.owner().to_string())
-                    .unwrap_or_default()
-            },
-            |login| login.trim().to_string(),
-        );
+        let github_login = if let Some(raw) = optional(GITHUB_LOGIN_KEY) {
+            Login::new(&raw).with_context(|| format!("invalid {GITHUB_LOGIN_KEY}: {raw:?}"))?
+        } else if let Some(first) = github_repos.first() {
+            Login::from(first)
+        } else {
+            // The loop above never leaves the allowlist empty; this names the key if
+            // it ever does.
+            bail!(
+                "{GITHUB_REPOS_KEY} names no repository, so {GITHUB_LOGIN_KEY} has no owner to default to"
+            );
+        };
         let calendar_fresh = seconds(
             &optional,
             CALENDAR_FRESH_SECS_KEY,
@@ -459,10 +462,17 @@ mod tests {
     #[test]
     fn the_calendar_login_defaults_to_the_first_repository_owner() {
         let config = load(&[]).unwrap();
-        assert_eq!(config.github_login, "scadoshi");
+        assert_eq!(config.github_login.as_str(), "scadoshi");
         assert_eq!(config.calendar_fresh, Duration::from_hours(1));
         let config = load(&[("GITHUB_LOGIN", " someone "), ("CALENDAR_FRESH_SECS", "60")]).unwrap();
-        assert_eq!(config.github_login, "someone");
+        assert_eq!(config.github_login.as_str(), "someone");
         assert_eq!(config.calendar_fresh, Duration::from_mins(1));
+    }
+
+    #[test]
+    fn a_login_that_does_not_parse_stops_startup() {
+        let message = error(&[("GITHUB_LOGIN", "some one")]);
+        assert!(message.contains("GITHUB_LOGIN"), "{message}");
+        assert!(message.contains("some one"), "{message}");
     }
 }

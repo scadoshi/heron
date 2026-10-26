@@ -9,6 +9,7 @@ use std::pin::Pin;
 pub mod clock;
 pub mod counts;
 pub mod health;
+pub mod login;
 pub mod secret;
 pub mod stats;
 
