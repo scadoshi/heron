@@ -400,19 +400,18 @@ impl fmt::Debug for FakeCalendar {
     }
 }
 
-/// Three days ending 2026-10-01, summing to whatever `total` the fake holds
-/// only when it is 5099; otherwise the days are the same and `total` differs,
-/// which is enough to tell answers apart.
+/// Three fixed days ending 2026-09-30. `total` is whatever the fake holds, not the
+/// days' sum, so a test tells two answers apart by it.
 pub fn calendar_for(login: &Login, total: u32) -> Calendar {
     let day = |d, count, level| Day {
-        date: NaiveDate::from_ymd_opt(2026, 9, d).unwrap_or(NaiveDate::MIN),
+        date: NaiveDate::from_ymd_opt(2026, 9, d).unwrap(),
         count,
         level,
     };
     Calendar {
         login: login.clone(),
         total,
-        days: vec![day(29, 0, 0), day(30, 12, 2), day(31, 48, 3)],
+        days: vec![day(28, 0, 0), day(29, 12, 2), day(30, 48, 3)],
     }
 }
 
@@ -443,4 +442,18 @@ impl CalendarSource for FakeCalendar {
             Ok(calendar_for(login, state.total))
         })
     }
+}
+
+#[test]
+fn the_fake_calendar_holds_three_real_days() {
+    let calendar = calendar_for(&Login::new("someone").unwrap(), 60);
+    let dates: Vec<NaiveDate> = calendar.days.iter().map(|day| day.date).collect();
+    assert!(
+        !dates.contains(&NaiveDate::MIN),
+        "an impossible date fell back to MIN: {dates:?}"
+    );
+    assert!(
+        dates.windows(2).all(|pair| pair[0] < pair[1]),
+        "days are not distinct and ascending: {dates:?}"
+    );
 }
