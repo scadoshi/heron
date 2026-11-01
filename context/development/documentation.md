@@ -2,7 +2,7 @@
 
 **Document intent, not what the name already says.** Every doc comment should tell the reader something they could not get from the name and the type.
 
-`comments.md` covers how a comment is worded. This file covers when to write one at all.
+`comment_guidelines.md` covers how a comment is worded. This file covers when to write one at all.
 
 ## Always document
 
