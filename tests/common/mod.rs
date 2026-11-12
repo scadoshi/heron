@@ -117,6 +117,16 @@ impl StatsSource for StubSource {
     ) -> impl Future<Output = Result<RepoStats, StatsError>> + Send {
         future::ready(self.answer_for(repo))
     }
+
+    /// No commits since any week: the stub's weeks stand counted as none.
+    fn fetch_commit_times(
+        &self,
+        _repo: &RepoName,
+        _branch: &str,
+        _since: DateTime<Utc>,
+    ) -> impl Future<Output = Result<Option<Vec<DateTime<Utc>>>, StatsError>> + Send {
+        future::ready(Ok(Some(Vec::new())))
+    }
 }
 
 impl StubSource {

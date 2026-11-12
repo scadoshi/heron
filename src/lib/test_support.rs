@@ -116,6 +116,10 @@ struct SourceState {
     failure: Option<Failure>,
     failing_repos: HashMap<RepoName, Failure>,
     delay: Option<Duration>,
+    /// What [`StatsSource::fetch_commit_times`] answers; `None` is too many to read.
+    commit_times: Option<Vec<DateTime<Utc>>>,
+    /// The `since` of every ask for commit times.
+    commit_times_asked: Vec<DateTime<Utc>>,
 }
 
 /// A source that counts its calls and fails on request.
@@ -132,6 +136,8 @@ impl Default for FakeSource {
             failure: None,
             failing_repos: HashMap::new(),
             delay: None,
+            commit_times: Some(Vec::new()),
+            commit_times_asked: Vec::new(),
         })))
     }
 }
@@ -158,6 +164,21 @@ impl FakeSource {
     /// Whether answers carry the fields GitHub computes in the background.
     pub fn set_computed(&self, computed: bool) {
         self.0.lock().unwrap().computed = computed;
+    }
+
+    /// Commit times answer `times` from here on.
+    pub fn set_commit_times(&self, times: Vec<DateTime<Utc>>) {
+        self.0.lock().unwrap().commit_times = Some(times);
+    }
+
+    /// Commit times answer "too many to read" from here on.
+    pub fn set_commit_times_unreadable(&self) {
+        self.0.lock().unwrap().commit_times = None;
+    }
+
+    /// The `since` of every ask for commit times, in order.
+    pub fn commit_times_asked(&self) -> Vec<DateTime<Utc>> {
+        self.0.lock().unwrap().commit_times_asked.clone()
     }
 
     /// Every call fails from here on.
@@ -209,6 +230,17 @@ impl StatsSource for FakeSource {
             tokio::time::sleep(delay).await;
         }
         outcome
+    }
+
+    fn fetch_commit_times(
+        &self,
+        _repo: &RepoName,
+        _branch: &str,
+        since: DateTime<Utc>,
+    ) -> impl Future<Output = Result<Option<Vec<DateTime<Utc>>>, StatsError>> + Send {
+        let mut state = self.0.lock().unwrap();
+        state.commit_times_asked.push(since);
+        future::ready(Ok(state.commit_times.clone()))
     }
 }
 

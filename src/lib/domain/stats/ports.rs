@@ -4,6 +4,8 @@
 use std::future::Future;
 use std::time::Duration;
 
+use chrono::{DateTime, Utc};
+
 use crate::domain::BoxFuture;
 use crate::domain::stats::models::cache_key::CacheKey;
 use crate::domain::stats::models::errors::{CacheError, StatsError};
@@ -18,6 +20,15 @@ pub trait StatsSource: Clone + Send + Sync + 'static {
         &self,
         repo: &RepoName,
     ) -> impl Future<Output = Result<RepoStats, StatsError>> + Send;
+
+    /// When each commit on `branch` of `repo` since `since` was authored, newest
+    /// first, or `None` when there are more than the source reads in one go.
+    fn fetch_commit_times(
+        &self,
+        repo: &RepoName,
+        branch: &str,
+        since: DateTime<Utc>,
+    ) -> impl Future<Output = Result<Option<Vec<DateTime<Utc>>>, StatsError>> + Send;
 }
 
 /// A byte store with expiry, shared by stats, counts and the calendar and checked by
