@@ -19,6 +19,12 @@ Plus [`CLAUDE.md`](CLAUDE.md), the rules for working in the repo.
 
 The running log, newest first. Update it when something ships. [`progress/todo.md`](progress/todo.md) holds what is still open.
 
+## 2026-11-12: weekly commits counted past GitHub's 202
+
+`totals.weekly_commits` stopped at the week of 2026-09-27 while `generated_at` read 2026-11-12, so the portfolio's chart ended in September. GitHub had answered `/stats/commit_activity` with 202 for every repository since then, the second ask included. The carry-forward kept each repository's September weeks, and with weeks present the snapshot counted as fully fresh, so nothing ever moved them on.
+
+A refresh whose weeks stop before the current one now lists the default branch's commits since the start of the last known week (`/commits?since=`, up to ten pages of 100) and counts them into the series' own weeks, the last known week counted again and every week up to the current one added, keeping 52. A 200 from GitHub still replaces the series outright. More than ten pages since the last week leaves the weeks as they were, and a repository with no weeks at all (never computed) still has none.
+
 ## 2026-10-08: SSH over the tailnet only, as scadoshi
 
 The public SSH port took about 32,000 failed logins a day. None got in (root's password is locked and only keys were accepted), but the tailnet already reached the box, so the port had no reason to be open. ufw now allows SSH on `tailscale0` only, and the box answers nothing on its public address.

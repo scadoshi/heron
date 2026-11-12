@@ -37,7 +37,7 @@ I run it on steller because benchmarks never found steller's best bugs and runni
 }
 ```
 
-Each repository also carries `weekly_commits`, the last 52 weeks of commits as `[{ week, commits }]` oldest first, and `totals.weekly_commits` sums them across every repository that has them. `additions`, `deletions` and `weekly_commits` are `null` while GitHub is still computing them. `stale` is `true` when GitHub could not be reached and you are getting the last numbers it gave.
+Each repository also carries `weekly_commits`, the last 52 weeks of commits as `[{ week, commits }]` oldest first, and `totals.weekly_commits` sums them across every repository that has them. `additions`, `deletions` and `weekly_commits` are `null` while GitHub is still computing them; once a repository has weeks, they run to the current week, counted from its commits when GitHub has not recomputed them. `stale` is `true` when GitHub could not be reached and you are getting the last numbers it gave.
 
 `GET /stats` also carries `calendar`: the account's last year of contributions as the GitHub profile draws it, `{ login, total, days: [{ date, count, level }], fetched_at, stale }`, with `level` from 0 to 4. It comes from GitHub's GraphQL API, needs a token, is fresh for `CALENDAR_FRESH_SECS` (an hour) and is `null` without a token or when it could not be read and nothing is cached. `GITHUB_LOGIN` names the account; it defaults to the owner of the first allowlisted repository.
 

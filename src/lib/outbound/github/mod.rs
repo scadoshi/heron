@@ -302,9 +302,83 @@ impl GitHub {
     }
 }
 
+/// Commits a page of the commits list holds when asked for its most.
+const COMMITS_PER_PAGE: usize = 100;
+
+/// Pages of commits read for one count of commits since a week: 1,000 commits,
+/// several weeks of the busiest repository.
+const COMMIT_PAGES_READ: usize = 10;
+
+/// One commit in the commits list, as far as its author's time.
+#[derive(Deserialize)]
+struct RawListedCommit {
+    commit: RawCommitDetail,
+}
+
+/// A listed commit's detail.
+#[derive(Deserialize)]
+struct RawCommitDetail {
+    author: Option<RawCommitAuthor>,
+}
+
+/// A commit's author line.
+#[derive(Deserialize)]
+struct RawCommitAuthor {
+    date: DateTime<Utc>,
+}
+
+impl GitHub {
+    /// When each commit on `branch` since `since` was authored, newest first, or
+    /// `None` when [`COMMIT_PAGES_READ`] full pages do not reach the end.
+    async fn fetch_commits_since(
+        &self,
+        repo: &RepoName,
+        branch: &str,
+        since: DateTime<Utc>,
+    ) -> Result<Option<Vec<DateTime<Utc>>>, GitHubError> {
+        let since = since.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        let per_page = COMMITS_PER_PAGE.to_string();
+        let mut times = Vec::new();
+        for page in 1..=COMMIT_PAGES_READ {
+            let response = self
+                .get(repo, "/commits")
+                .query(&[
+                    ("sha", branch),
+                    ("since", since.as_str()),
+                    ("per_page", per_page.as_str()),
+                    ("page", page.to_string().as_str()),
+                ])
+                .send()
+                .await?;
+            let listed: Vec<RawListedCommit> = check_status(response)?.json().await?;
+            let full = listed.len() >= COMMITS_PER_PAGE;
+            times.extend(
+                listed
+                    .into_iter()
+                    .filter_map(|c| c.commit.author.map(|author| author.date)),
+            );
+            if !full {
+                return Ok(Some(times));
+            }
+        }
+        Ok(None)
+    }
+}
+
 impl StatsSource for GitHub {
     async fn fetch_repo_stats(&self, repo: &RepoName) -> Result<RepoStats, StatsError> {
         self.fetch_stats(repo)
+            .await
+            .map_err(|error| error.into_stats_error(repo))
+    }
+
+    async fn fetch_commit_times(
+        &self,
+        repo: &RepoName,
+        branch: &str,
+        since: DateTime<Utc>,
+    ) -> Result<Option<Vec<DateTime<Utc>>>, StatsError> {
+        self.fetch_commits_since(repo, branch, since)
             .await
             .map_err(|error| error.into_stats_error(repo))
     }

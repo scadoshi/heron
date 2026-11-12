@@ -7,6 +7,7 @@ use axum::http::{HeaderMap as AxumHeaders, StatusCode as AxumStatus, header};
 use axum::response::{IntoResponse, Response as AxumResponse};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use chrono::TimeZone;
 use serde_json::json;
 
 use super::*;
@@ -29,6 +30,8 @@ struct Fake {
     activity_then: Option<(u16, &'static str)>,
     /// Status and body for the GraphQL calendar query.
     graphql: (u16, &'static str),
+    /// The body of every commits request that names a `since`, one page of them.
+    commits_since: &'static str,
     /// Answered by every route when set, as status and headers.
     refusal: Option<(u16, Vec<(&'static str, &'static str)>)>,
     seen: Arc<Mutex<Vec<Seen>>>,
@@ -66,6 +69,7 @@ impl Default for Fake {
                     {"contributionDays":[{"date":"2026-09-30","contributionCount":48,"contributionLevel":"FOURTH_QUARTILE"}]}]}}}}}"#,
             ),
             activity_then: None,
+            commits_since: r#"[{"sha":"b","commit":{"author":{"date":"2026-10-20T09:00:00Z"}}},{"sha":"a","commit":{"author":{"date":"2026-09-28T09:00:00Z"}}}]"#,
             refusal: None,
             seen: Arc::default(),
         }
@@ -151,6 +155,14 @@ async fn commits(State(fake): State<Fake>, request: Request) -> AxumResponse {
     fake.record(&request);
     if let Some(refusal) = fake.refuse() {
         return refusal;
+    }
+    if request.uri().query().is_some_and(|q| q.contains("since=")) {
+        return (
+            AxumStatus::OK,
+            [(header::CONTENT_TYPE, "application/json")],
+            fake.commits_since,
+        )
+            .into_response();
     }
     let (status, link) = fake.commits;
     let mut response = (
@@ -593,6 +605,49 @@ async fn statistics_github_finishes_during_the_pause_come_back_on_the_second_ask
     let weeks = stats.weekly_commits.unwrap();
     assert_eq!(weeks.len(), 1);
     assert_eq!(fake.count("/stats/commit_activity"), 2);
+}
+
+// == commits since ==
+
+#[tokio::test]
+async fn commit_times_since_a_week_come_back_newest_first() {
+    let fake = Fake::default();
+    let github = fake.serve(None).await;
+    let since = Utc.with_ymd_and_hms(2026, 9, 27, 0, 0, 0).unwrap();
+    let times = github
+        .fetch_commit_times(&repo("a/b"), "main", since)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        times,
+        [
+            Utc.with_ymd_and_hms(2026, 10, 20, 9, 0, 0).unwrap(),
+            Utc.with_ymd_and_hms(2026, 9, 28, 9, 0, 0).unwrap(),
+        ]
+    );
+    assert!(fake.saw("/commits?sha=main&since=2026-09-27T00%3A00%3A00Z&per_page=100&page=1"));
+    assert_eq!(fake.count("since="), 1, "a short page is the last");
+}
+
+#[tokio::test]
+async fn too_many_commits_since_to_read_are_none() {
+    let full_page = format!(
+        "[{}]",
+        vec![r#"{"sha":"a","commit":{"author":{"date":"2026-10-20T09:00:00Z"}}}"#; 100].join(",")
+    );
+    let fake = Fake {
+        commits_since: Box::leak(full_page.into_boxed_str()),
+        ..Fake::default()
+    };
+    let github = fake.serve(None).await;
+    let since = Utc.with_ymd_and_hms(2026, 9, 27, 0, 0, 0).unwrap();
+    let times = github
+        .fetch_commit_times(&repo("a/b"), "main", since)
+        .await
+        .unwrap();
+    assert_eq!(times, None);
+    assert_eq!(fake.count("since="), COMMIT_PAGES_READ);
 }
 
 // == calendar ==

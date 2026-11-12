@@ -16,6 +16,7 @@ use crate::domain::stats::models::portfolio_stats::{PortfolioStats, Totals};
 use crate::domain::stats::models::repo_name::RepoName;
 use crate::domain::stats::models::repo_stats::{RepoReport, RepoStats};
 use crate::domain::stats::models::snapshot::{self, Snapshot};
+use crate::domain::stats::models::weekly;
 use crate::domain::stats::ports::{Cache, StatsService, StatsSource};
 
 /// How long an answer still missing GitHub's computed statistics is served before
@@ -89,6 +90,40 @@ impl<S: StatsSource, C: Cache, K: Clock> Service<S, C, K> {
         })
     }
 
+    /// Counts the commits since `stats`' last week into its weeks when they stop
+    /// before the current one. Weeks that cannot be brought up stand as they are.
+    async fn bring_weeks_up(&self, repo: &RepoName, stats: &mut RepoStats) {
+        let now = self.clock.now();
+        let Some(weeks) = stats.weekly_commits.as_deref() else {
+            return;
+        };
+        if !weekly::is_behind(weeks, now) {
+            return;
+        }
+        let Some(since) = weeks.last().map(|last| last.week) else {
+            return;
+        };
+        match self
+            .source
+            .fetch_commit_times(repo, &stats.default_branch, since)
+            .await
+        {
+            Ok(Some(times)) => {
+                stats.weekly_commits = Some(weekly::top_up(weeks, &times, now));
+            }
+            Ok(None) => {
+                tracing::warn!(
+                    "too many commits on {repo} since {since} to count; its weeks stand"
+                );
+            }
+            Err(error) => {
+                tracing::warn!(
+                    "commits since {since} unavailable for {repo}; its weeks stand: {error}"
+                );
+            }
+        }
+    }
+
     async fn resolve(&self, repo: &RepoName) -> Result<RepoReport, StatsError> {
         let Some(refresh_lock) = self.refresh_locks.get(repo) else {
             return Err(StatsError::UnknownRepo(repo.clone()));
@@ -122,6 +157,10 @@ impl<S: StatsSource, C: Cache, K: Clock> Service<S, C, K> {
                         .take()
                         .or_else(|| known.weekly_commits.clone());
                 }
+                // GitHub can answer "still computing" for days, which leaves the
+                // weeks it gave last stopping short of this one. The commits made
+                // since then are counted into them.
+                self.bring_weeks_up(repo, &mut stats).await;
                 // Still missing after the merge means GitHub has never answered with
                 // them, so the answer is held only briefly.
                 let fresh = if stats.additions.is_none() || stats.weekly_commits.is_none() {
@@ -211,6 +250,8 @@ impl<S: StatsSource, C: Cache, K: Clock> StatsService for Service<S, C, K> {
 
 #[cfg(test)]
 mod tests {
+    use chrono::{Datelike, TimeZone, Utc};
+
     use super::*;
     use crate::test_support::{Failure, FakeCache, FakeClock, FakeSource, repo};
 
@@ -394,6 +435,57 @@ mod tests {
         assert_eq!(second.stats.deletions, Some(100));
         assert!(!second.stale, "a refresh that answered is not stale");
         assert_eq!(source.calls(), 2);
+    }
+
+    #[tokio::test]
+    async fn weeks_behind_the_current_one_are_counted_from_the_commits_since() {
+        // The fake's weeks end on Sunday 2026-08-30; the clock reads Tuesday 2026-09-29.
+        let (service, source, _, _) = service(&["a/b"]);
+        let at = |month, day| Utc.with_ymd_and_hms(2026, month, day, 10, 0, 0).unwrap();
+        source.set_commit_times(vec![at(9, 28), at(9, 1)]);
+        let report = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
+        let weeks: Vec<(u32, u32, u32)> = report
+            .stats
+            .weekly_commits
+            .unwrap()
+            .iter()
+            .map(|w| (w.week.month(), w.week.day(), w.commits))
+            .collect();
+        assert_eq!(
+            weeks,
+            [(8, 30, 1), (9, 6, 0), (9, 13, 0), (9, 20, 0), (9, 27, 1)],
+            "the stale week counted again, then every week to the current one"
+        );
+        assert_eq!(
+            source.commit_times_asked(),
+            [Utc.with_ymd_and_hms(2026, 8, 30, 0, 0, 0).unwrap()],
+            "asked from the start of the last known week"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_series_that_reaches_the_current_week_is_not_counted_again() {
+        let (service, source, _, clock) = service(&["a/b"]);
+        let first = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
+        source.set_computed(false);
+        clock.advance(Duration::from_secs(FRESH_SECS));
+        let second = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
+        assert_eq!(second.stats.weekly_commits, first.stats.weekly_commits);
+        assert_eq!(
+            source.commit_times_asked().len(),
+            1,
+            "the topped-up series already ends at the current week"
+        );
+    }
+
+    #[tokio::test]
+    async fn weeks_stand_when_the_commits_since_cannot_be_read() {
+        let (service, source, _, _) = service(&["a/b"]);
+        source.set_commit_times_unreadable();
+        let report = service.fetch_repo_stats(&repo("a/b")).await.unwrap();
+        let weeks = report.stats.weekly_commits.unwrap();
+        assert_eq!(weeks.len(), 1, "the series GitHub gave, unchanged");
+        assert!(!report.stale);
     }
 
     #[tokio::test]
