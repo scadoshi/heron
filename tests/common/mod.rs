@@ -12,8 +12,6 @@
 )]
 #![expect(
     unreachable_pub,
-    clippy::unwrap_used,
-    clippy::panic,
     clippy::arithmetic_side_effects,
     reason = "test helpers: pub so each test crate can call them, and clippy.toml's in-tests allowances do not reach code outside `#[test]`"
 )]

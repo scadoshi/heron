@@ -82,8 +82,7 @@ impl Fake {
             path_and_query: request
                 .uri()
                 .path_and_query()
-                .map(ToString::to_string)
-                .unwrap_or_default(),
+                .map_or_default(ToString::to_string),
             headers: request.headers().clone(),
         });
     }

@@ -6,12 +6,6 @@
 //!
 //! The same tests should pass against Redis, which is what Redis-compatible means.
 
-#![expect(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    reason = "a test: its helpers panic on a missing or misconfigured steller"
-)]
-
 mod common;
 
 use std::sync::atomic::{AtomicU32, Ordering};
